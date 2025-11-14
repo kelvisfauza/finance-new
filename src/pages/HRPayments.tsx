@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
-import { Users, Download, Search, CheckCircle, Clock, Check, X } from 'lucide-react'
+import { Users, Download, Search, CheckCircle, Clock, Check, X, Printer } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 import { useSMSNotifications } from '../hooks/useSMSNotifications'
 import { useAuth } from '../contexts/AuthContext'
+import { PayslipPrint } from '../components/PayslipPrint'
 
 interface SalaryPayment {
   id: string
@@ -35,6 +36,8 @@ export const HRPayments = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [processingId, setProcessingId] = useState<string | null>(null)
+  const [printingPayment, setPrintingPayment] = useState<SalaryPayment | null>(null)
+  const [employeeDetails, setEmployeeDetails] = useState<any>(null)
 
   const { sendApprovalResponseSMS } = useSMSNotifications()
   const { user } = useAuth()
@@ -330,9 +333,27 @@ export const HRPayments = () => {
                               Reject
                             </button>
                           </div>
+                        ) : payment.status.toLowerCase() === 'approved' ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={async () => {
+                                const { data } = await supabase
+                                  .from('employees')
+                                  .select('name, employee_id, department, position')
+                                  .eq('id', payment.user_id)
+                                  .maybeSingle()
+                                setEmployeeDetails(data)
+                                setPrintingPayment(payment)
+                              }}
+                              className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                            >
+                              <Printer className="w-4 h-4 mr-1" />
+                              Print
+                            </button>
+                          </div>
                         ) : (
                           <div className="text-center text-sm text-gray-400">
-                            {payment.status.toLowerCase() === 'approved' ? 'Approved' : payment.status.toLowerCase() === 'rejected' ? 'Rejected' : 'Completed'}
+                            {payment.status.toLowerCase() === 'rejected' ? 'Rejected' : 'Completed'}
                           </div>
                         )}
                       </td>
@@ -392,6 +413,12 @@ export const HRPayments = () => {
           </div>
         </div>
       </div>
+
+      {printingPayment && (
+        <div className="hidden">
+          <PayslipPrint payment={printingPayment} employeeDetails={employeeDetails} />
+        </div>
+      )}
     </div>
   )
 }
