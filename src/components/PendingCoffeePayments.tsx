@@ -134,8 +134,9 @@ export const PendingCoffeePayments = () => {
         .from('payment_records')
         .insert({
           supplier: payment.supplier_name,
-          supplier_id: payment.supplier_id,
           amount: finalAmount,
+          amount_paid: finalAmount,
+          balance: 0,
           status: 'Paid',
           method: 'Cash',
           date: new Date().toISOString().split('T')[0],
