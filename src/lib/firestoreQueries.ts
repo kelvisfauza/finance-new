@@ -1,5 +1,4 @@
 import { db } from './firebase'
-import firebase from 'firebase/compat/app'
 
 export interface FirestoreAdvance {
   id: string
