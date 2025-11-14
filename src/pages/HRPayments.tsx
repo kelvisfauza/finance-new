@@ -339,16 +339,14 @@ export const HRPayments = () => {
                               onClick={async () => {
                                 const { data: profile } = await supabase
                                   .from('profiles')
-                                  .select('name, phone')
+                                  .select('name, phone, email')
                                   .eq('user_id', payment.user_id)
                                   .maybeSingle()
-
-                                const { data: authUser } = await supabase.auth.admin.getUserById(payment.user_id)
 
                                 setEmployeeDetails({
                                   name: profile?.name || payment.requested_by,
                                   phone: profile?.phone,
-                                  email: authUser?.user?.email
+                                  email: profile?.email
                                 })
                                 setPrintingPayment(payment)
                               }}
