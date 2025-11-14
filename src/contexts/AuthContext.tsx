@@ -62,6 +62,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const checkUser = async () => {
+    const timeout = setTimeout(() => {
+      setLoading(false)
+    }, 5000)
+
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (session?.user) {
@@ -71,6 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Error checking user:', error)
     } finally {
+      clearTimeout(timeout)
       setLoading(false)
     }
   }
