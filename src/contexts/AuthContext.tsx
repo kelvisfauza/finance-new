@@ -64,6 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkUser = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      console.log('Session check:', session ? 'User logged in' : 'No user session')
       if (session?.user) {
         setUser(session.user)
         await fetchEmployee(session.user.id)
@@ -77,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchEmployee = async (authUserId: string) => {
     try {
+      console.log('Fetching employee for auth_user_id:', authUserId)
       const { data, error } = await supabase
         .from('employees')
         .select('*')
@@ -84,11 +86,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('status', 'Active')
         .maybeSingle()
 
-      if (error) throw error
+      if (error) {
+        console.error('Employee fetch error:', error)
+        throw error
+      }
+
+      console.log('Employee data:', data)
 
       if (data && !data.disabled) {
         setEmployee(data)
       } else {
+        console.log('No valid employee found')
         setEmployee(null)
       }
     } catch (error) {
