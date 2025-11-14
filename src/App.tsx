@@ -596,6 +596,18 @@ const Payments = () => {
   const [payments, setPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPayment, setSelectedPayment] = useState<any | null>(null)
+  const [showModal, setShowModal] = useState(false)
+
+  const handleViewPayment = (payment: any) => {
+    setSelectedPayment(payment)
+    setShowModal(true)
+  }
+
+  const handleCloseModal = () => {
+    setShowModal(false)
+    setSelectedPayment(null)
+  }
 
   useEffect(() => {
     fetchPayments()
@@ -784,11 +796,16 @@ const Payments = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
-                        <button className="text-emerald-600 hover:text-emerald-900">View</button>
+                        <button
+                          onClick={() => handleViewPayment(payment)}
+                          className="text-emerald-600 hover:text-emerald-900 transition-colors"
+                        >
+                          View
+                        </button>
                         {payment.status === 'Pending' && (
-                          <button className="text-blue-600 hover:text-blue-900">Approve</button>
+                          <button className="text-blue-600 hover:text-blue-900 transition-colors">Approve</button>
                         )}
-                        <button className="text-red-600 hover:text-red-900">Reject</button>
+                        <button className="text-red-600 hover:text-red-900 transition-colors">Reject</button>
                       </div>
                     </td>
                   </tr>
@@ -798,6 +815,101 @@ const Payments = () => {
           </div>
         )}
       </div>
+
+      {showModal && selectedPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-gray-900">Payment Details</h3>
+              <button
+                onClick={handleCloseModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Payment ID</label>
+                  <p className="mt-1 text-sm font-mono text-gray-900">{String(selectedPayment.id).slice(0, 16)}...</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Status</label>
+                  <div className="mt-1">
+                    <StatusBadge status={selectedPayment.status} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Supplier Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Supplier Name</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedPayment.supplier || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Batch Number</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedPayment.batch_number || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Payment Information</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Amount</label>
+                    <p className="mt-1 text-lg font-semibold text-gray-900">{formatCurrency(Number(selectedPayment.amount))}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Payment Method</label>
+                    <p className="mt-1 text-sm text-gray-900">{selectedPayment.method || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Payment Date</label>
+                    <p className="mt-1 text-sm text-gray-900">{formatDate(selectedPayment.date)}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Created</label>
+                    <p className="mt-1 text-sm text-gray-900">{formatDate(selectedPayment.created_at)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {selectedPayment.quality_assessment_id && (
+                <div className="border-t border-gray-200 pt-4">
+                  <label className="text-sm font-medium text-gray-500">Quality Assessment ID</label>
+                  <p className="mt-1 text-sm font-mono text-gray-900">{String(selectedPayment.quality_assessment_id)}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 bg-gray-50 px-6 py-4 flex justify-end space-x-3 border-t border-gray-200">
+              <button
+                onClick={handleCloseModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+              {selectedPayment.status === 'Pending' && (
+                <>
+                  <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                    Approve Payment
+                  </button>
+                  <button className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
+                    Reject Payment
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
