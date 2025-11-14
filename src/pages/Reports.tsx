@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { FileText, Calendar, TrendingUp, DollarSign, ChevronDown, ChevronUp } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
-import { format } from 'date-fns'
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns'
 
 interface ReportData {
   cashTransactions: any[]
@@ -11,6 +11,8 @@ interface ReportData {
   cashBalance: any
   loading: boolean
 }
+
+type FilterType = 'day' | 'week' | 'month'
 
 export const Reports = () => {
   const [reportData, setReportData] = useState<ReportData>({
@@ -22,7 +24,9 @@ export const Reports = () => {
     loading: true
   })
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const [filterType, setFilterType] = useState<FilterType>('day')
   const [expandedSections, setExpandedSections] = useState({
+    daybook: true,
     cash: true,
     coffee: true,
     expenses: true,
@@ -31,33 +35,65 @@ export const Reports = () => {
 
   useEffect(() => {
     fetchReportData()
-  }, [selectedDate])
+  }, [selectedDate, filterType])
+
+  const getDateRange = () => {
+    const date = new Date(selectedDate)
+
+    switch (filterType) {
+      case 'day':
+        return {
+          start: startOfDay(date).toISOString(),
+          end: endOfDay(date).toISOString()
+        }
+      case 'week':
+        return {
+          start: startOfWeek(date, { weekStartsOn: 1 }).toISOString(),
+          end: endOfWeek(date, { weekStartsOn: 1 }).toISOString()
+        }
+      case 'month':
+        return {
+          start: startOfMonth(date).toISOString(),
+          end: endOfMonth(date).toISOString()
+        }
+    }
+  }
 
   const fetchReportData = async () => {
     try {
       setReportData(prev => ({ ...prev, loading: true }))
+
+      const { start, end } = getDateRange()
 
       const [cashTx, coffeePayments, expenses, coffeeLots, balance] = await Promise.all([
         supabase
           .from('finance_cash_transactions')
           .select('*')
           .eq('status', 'confirmed')
+          .gte('created_at', start)
+          .lte('created_at', end)
           .order('created_at', { ascending: false }),
 
         supabase
           .from('payment_records')
           .select('*')
+          .gte('date', start)
+          .lte('date', end)
           .order('date', { ascending: false }),
 
         supabase
           .from('approval_requests')
           .select('*')
           .eq('type', 'Expense Request')
+          .gte('created_at', start)
+          .lte('created_at', end)
           .order('created_at', { ascending: false }),
 
         supabase
           .from('finance_coffee_lots')
           .select('*')
+          .gte('created_at', start)
+          .lte('created_at', end)
           .order('created_at', { ascending: false }),
 
         supabase
@@ -140,14 +176,60 @@ export const Reports = () => {
 
   const summary = calculateSummary()
 
+  const getDateRangeLabel = () => {
+    const date = new Date(selectedDate)
+    const { start, end } = getDateRange()
+
+    switch (filterType) {
+      case 'day':
+        return format(date, 'MMMM dd, yyyy')
+      case 'week':
+        return `${format(new Date(start), 'MMM dd')} - ${format(new Date(end), 'MMM dd, yyyy')}`
+      case 'month':
+        return format(date, 'MMMM yyyy')
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Finance Reports</h1>
-          <p className="text-gray-600">Comprehensive financial overview and analytics</p>
+          <p className="text-gray-600">{getDateRangeLabel()}</p>
         </div>
-        <div>
+        <div className="flex gap-2 items-center">
+          <div className="flex bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setFilterType('day')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                filterType === 'day'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Day
+            </button>
+            <button
+              onClick={() => setFilterType('week')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                filterType === 'week'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setFilterType('month')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                filterType === 'month'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Month
+            </button>
+          </div>
           <input
             type="date"
             value={selectedDate}
@@ -186,6 +268,96 @@ export const Reports = () => {
               <div className="bg-purple-50 rounded-lg p-4">
                 <p className="text-sm text-purple-600 font-medium">Approved Expenses</p>
                 <p className="text-2xl font-bold text-purple-700 mt-1">{formatCurrency(summary.approvedExpenses)}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <button
+          onClick={() => toggleSection('daybook')}
+          className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50"
+        >
+          <div className="flex items-center gap-3">
+            <Calendar className="w-6 h-6 text-indigo-600" />
+            <h2 className="text-xl font-semibold text-gray-900">Day Book</h2>
+          </div>
+          {expandedSections.daybook ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+        </button>
+        {expandedSections.daybook && (
+          <div className="px-6 pb-6">
+            <div className="mt-4 space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Opening Balance</h3>
+                  <p className="text-2xl font-bold text-gray-900">{formatCurrency(summary.currentBalance)}</p>
+                </div>
+
+                <div className="border-t border-gray-200 pt-4 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900">Cash In (Deposits)</p>
+                      <p className="text-sm text-gray-500">{reportData.cashTransactions.filter(t => t.transaction_type === 'DEPOSIT').length} transactions</p>
+                    </div>
+                    <p className="text-lg font-bold text-green-600">+{formatCurrency(summary.totalDeposits)}</p>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900">Cash Out (Payments)</p>
+                      <p className="text-sm text-gray-500">{reportData.cashTransactions.filter(t => t.transaction_type === 'PAYMENT').length} transactions</p>
+                    </div>
+                    <p className="text-lg font-bold text-red-600">-{formatCurrency(summary.totalPayments)}</p>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900">Coffee Payments (Paid)</p>
+                      <p className="text-sm text-gray-500">{reportData.coffeePayments.filter(p => p.status === 'Paid').length} payments</p>
+                    </div>
+                    <p className="text-lg font-bold text-amber-600">{formatCurrency(summary.paidCoffeePayments)}</p>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="font-medium text-gray-900">Approved Expenses</p>
+                      <p className="text-sm text-gray-500">{reportData.expenseRequests.filter(e => e.status === 'Approved').length} expenses</p>
+                    </div>
+                    <p className="text-lg font-bold text-purple-600">{formatCurrency(summary.approvedExpenses)}</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-300 mt-4 pt-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-900">Closing Balance</h3>
+                    <p className="text-2xl font-bold text-blue-600">
+                      {formatCurrency(summary.currentBalance + summary.totalDeposits - summary.totalPayments)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h4 className="font-semibold text-gray-900 mb-2">Period Summary</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600">Total Transactions</p>
+                    <p className="font-bold text-gray-900">{reportData.cashTransactions.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Coffee Payments</p>
+                    <p className="font-bold text-gray-900">{reportData.coffeePayments.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Pending Coffee</p>
+                    <p className="font-bold text-gray-900">{formatCurrency(summary.pendingCoffeePayments)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Pending Expenses</p>
+                    <p className="font-bold text-gray-900">{formatCurrency(summary.pendingExpenses)}</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -310,7 +482,7 @@ export const Reports = () => {
           className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50"
         >
           <div className="flex items-center gap-3">
-            <Calendar className="w-6 h-6 text-red-600" />
+            <FileText className="w-6 h-6 text-red-600" />
             <h2 className="text-xl font-semibold text-gray-900">Expense Requests ({reportData.expenseRequests.length})</h2>
           </div>
           {expandedSections.expenses ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
