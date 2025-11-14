@@ -46,11 +46,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     checkUser()
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event: any, session: any) => {
-      if (session?.user) {
-        setUser(session.user)
-        await fetchEmployee(session.user.id)
-      } else {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+      if (!session?.user) {
         setUser(null)
         setEmployee(null)
       }
@@ -103,39 +100,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
 
-    if (error) throw error
+      if (error) throw error
 
-    if (data.user) {
-      const { data: employeeData, error: employeeError } = await supabase
-        .from('employees')
-        .select('*')
-        .eq('auth_user_id', data.user.id)
-        .eq('status', 'Active')
-        .maybeSingle()
+      if (data.user) {
+        const { data: employeeData, error: employeeError } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('auth_user_id', data.user.id)
+          .eq('status', 'Active')
+          .maybeSingle()
 
-      if (employeeError) throw employeeError
+        if (employeeError) {
+          await supabase.auth.signOut()
+          throw new Error('Failed to fetch employee data: ' + employeeError.message)
+        }
 
-      if (!employeeData || employeeData.disabled) {
-        await supabase.auth.signOut()
-        throw new Error('No active employee record found')
+        if (!employeeData || employeeData.disabled) {
+          await supabase.auth.signOut()
+          throw new Error('No active employee record found')
+        }
+
+        const hasAccess =
+          employeeData.department === 'Finance' ||
+          employeeData.permissions.includes('Finance') ||
+          ['Super Admin', 'Manager', 'Administrator'].includes(employeeData.role)
+
+        if (!hasAccess) {
+          await supabase.auth.signOut()
+          throw new Error('Access denied. Finance department access required.')
+        }
+
+        setEmployee(employeeData)
+        setUser(data.user)
       }
-
-      const hasAccess =
-        employeeData.department === 'Finance' ||
-        employeeData.permissions.includes('Finance') ||
-        ['Super Admin', 'Manager', 'Administrator'].includes(employeeData.role)
-
-      if (!hasAccess) {
-        await supabase.auth.signOut()
-        throw new Error('Access denied. Finance department access required.')
-      }
-
-      setEmployee(employeeData)
+    } catch (error) {
+      throw error
     }
   }
 
