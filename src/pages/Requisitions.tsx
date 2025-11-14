@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { FileText, CheckCircle, Clock, XCircle, Download, Search } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
+import { useAuth } from '../contexts/AuthContext'
 
 interface Requisition {
   id: string
@@ -20,9 +21,17 @@ interface Requisition {
   created_at: string
   updated_at?: string
   details?: any
+  finance_approved?: boolean
+  finance_approved_by?: string
+  finance_approved_at?: string
+  admin_approved?: boolean
+  admin_approved_by?: string
+  admin_approved_at?: string
+  approval_stage?: string
 }
 
 export const Requisitions = () => {
+  const { employee } = useAuth()
   const [requisitions, setRequisitions] = useState<Requisition[]>([])
   const [filteredRequisitions, setFilteredRequisitions] = useState<Requisition[]>([])
   const [loading, setLoading] = useState(true)
@@ -31,6 +40,10 @@ export const Requisitions = () => {
   const [selectedRequisition, setSelectedRequisition] = useState<Requisition | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [actionType, setActionType] = useState<'finance-review' | 'admin-approve' | 'reject'>('admin-approve')
+
+  const isFinanceRole = employee?.role?.toLowerCase().includes('finance')
+  const isAdminRole = ['Super Admin', 'Administrator', 'Manager'].includes(employee?.role || '')
 
   useEffect(() => {
     fetchRequisitions()
@@ -79,71 +92,92 @@ export const Requisitions = () => {
     setFilteredRequisitions(filtered)
   }
 
-  const handleApprove = (requisition: Requisition) => {
+  const handleFinanceReview = (requisition: Requisition) => {
     setSelectedRequisition(requisition)
+    setActionType('finance-review')
     setShowModal(true)
   }
 
-  const handleReject = async (requisition: Requisition) => {
-    if (!confirm(`Are you sure you want to reject this requisition: ${requisition.title}?`)) return
-
-    try {
-      setProcessing(true)
-
-      const { error } = await supabase
-        .from('approval_requests')
-        .update({
-          status: 'Rejected',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', requisition.id)
-
-      if (error) throw error
-
-      alert('Requisition rejected')
-      fetchRequisitions()
-    } catch (error: any) {
-      console.error('Error rejecting requisition:', error)
-      alert(`Failed to reject requisition: ${error.message}`)
-    } finally {
-      setProcessing(false)
-    }
+  const handleAdminApprove = (requisition: Requisition) => {
+    setSelectedRequisition(requisition)
+    setActionType('admin-approve')
+    setShowModal(true)
   }
 
-  const handleConfirmApproval = async () => {
-    if (!selectedRequisition) return
+  const handleReject = (requisition: Requisition) => {
+    setSelectedRequisition(requisition)
+    setActionType('reject')
+    setShowModal(true)
+  }
+
+  const handleConfirmAction = async () => {
+    if (!selectedRequisition || !employee) return
 
     try {
       setProcessing(true)
 
-      const { error: updateError } = await supabase
-        .from('approval_requests')
-        .update({
-          status: 'Approved',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedRequisition.id)
+      if (actionType === 'finance-review') {
+        const { error } = await supabase
+          .from('approval_requests')
+          .update({
+            finance_approved: true,
+            finance_approved_by: employee.name,
+            finance_approved_at: new Date().toISOString(),
+            approval_stage: 'Finance Reviewed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedRequisition.id)
 
-      if (updateError) throw updateError
+        if (error) throw error
 
-      const { error: transactionError } = await supabase
-        .from('finance_transactions')
-        .insert({
-          type: 'Requisition',
-          description: selectedRequisition.title,
-          amount: selectedRequisition.amount,
-          date: new Date().toISOString().split('T')[0]
-        })
+        fetchRequisitions()
+      } else if (actionType === 'admin-approve') {
+        const { error: updateError } = await supabase
+          .from('approval_requests')
+          .update({
+            status: 'Approved',
+            admin_approved: true,
+            admin_approved_by: employee.name,
+            admin_approved_at: new Date().toISOString(),
+            approval_stage: 'Final Approved',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedRequisition.id)
 
-      if (transactionError) throw transactionError
+        if (updateError) throw updateError
 
-      alert('Requisition approved successfully')
+        const { error: expenseError } = await supabase
+          .from('finance_expenses')
+          .insert({
+            category: 'Requisition',
+            description: selectedRequisition.title,
+            amount: selectedRequisition.amount,
+            date: new Date().toISOString().split('T')[0],
+            department: selectedRequisition.department,
+            approval_request_id: selectedRequisition.id
+          })
+
+        if (expenseError) throw expenseError
+
+        fetchRequisitions()
+      } else if (actionType === 'reject') {
+        const { error } = await supabase
+          .from('approval_requests')
+          .update({
+            status: 'Rejected',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedRequisition.id)
+
+        if (error) throw error
+
+        fetchRequisitions()
+      }
+
       setShowModal(false)
       setSelectedRequisition(null)
-      fetchRequisitions()
     } catch (error: any) {
-      console.error('Error approving requisition:', error)
-      alert(`Failed to approve requisition: ${error.message}`)
+      console.error('Error processing action:', error)
     } finally {
       setProcessing(false)
     }
@@ -281,24 +315,38 @@ export const Requisitions = () => {
                     <td className="py-3 px-4 text-sm">{requisition.daterequested}</td>
                     <td className="py-3 px-4 text-center">
                       {requisition.status === 'Pending' && (
-                        <PermissionGate roles={['Super Admin', 'Manager', 'Administrator']}>
-                          <div className="flex justify-center gap-2">
+                        <div className="flex justify-center gap-2">
+                          {isFinanceRole && !requisition.finance_approved && (
                             <button
-                              onClick={() => handleApprove(requisition)}
+                              onClick={() => handleFinanceReview(requisition)}
                               disabled={processing}
-                              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
                             >
-                              Approve
+                              Finance Review
                             </button>
-                            <button
-                              onClick={() => handleReject(requisition)}
-                              disabled={processing}
-                              className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        </PermissionGate>
+                          )}
+                          {isAdminRole && (
+                            <>
+                              <button
+                                onClick={() => handleAdminApprove(requisition)}
+                                disabled={processing}
+                                className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                              >
+                                Approve & Release
+                              </button>
+                              <button
+                                onClick={() => handleReject(requisition)}
+                                disabled={processing}
+                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {requisition.finance_approved && requisition.status === 'Pending' && (
+                        <span className="text-xs text-blue-600 font-medium">Finance Reviewed</span>
                       )}
                     </td>
                   </tr>
@@ -312,8 +360,18 @@ export const Requisitions = () => {
       {showModal && selectedRequisition && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-            <div className="bg-gradient-to-r from-orange-600 to-orange-700 px-6 py-4 rounded-t-2xl">
-              <h3 className="text-xl font-semibold text-white">Approve Requisition</h3>
+            <div className={`px-6 py-4 rounded-t-2xl ${
+              actionType === 'finance-review'
+                ? 'bg-gradient-to-r from-blue-600 to-blue-700'
+                : actionType === 'admin-approve'
+                ? 'bg-gradient-to-r from-green-600 to-green-700'
+                : 'bg-gradient-to-r from-red-600 to-red-700'
+            }`}>
+              <h3 className="text-xl font-semibold text-white">
+                {actionType === 'finance-review' && 'Finance Review'}
+                {actionType === 'admin-approve' && 'Final Approval & Release Cash'}
+                {actionType === 'reject' && 'Reject Requisition'}
+              </h3>
             </div>
 
             <div className="p-6 space-y-4">
@@ -335,6 +393,13 @@ export const Requisitions = () => {
                     <p className="text-gray-600">Priority</p>
                     <p className="font-semibold">{selectedRequisition.priority}</p>
                   </div>
+                  {selectedRequisition.finance_approved && (
+                    <div className="pt-2 border-t border-gray-300">
+                      <p className="text-xs text-blue-600 font-medium">
+                        Finance Reviewed by {selectedRequisition.finance_approved_by}
+                      </p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-gray-600">Amount</p>
                     <p className="text-2xl font-bold text-orange-700">{formatCurrency(selectedRequisition.amount)}</p>
@@ -343,7 +408,9 @@ export const Requisitions = () => {
               </div>
 
               <p className="text-sm text-gray-600">
-                Are you sure you want to approve this requisition? This action cannot be undone.
+                {actionType === 'finance-review' && 'Mark this requisition as reviewed by Finance. Admin will provide final approval.'}
+                {actionType === 'admin-approve' && 'This will provide final approval and create financial records. This action cannot be undone.'}
+                {actionType === 'reject' && 'Are you sure you want to reject this requisition?'}
               </p>
             </div>
 
@@ -359,11 +426,20 @@ export const Requisitions = () => {
                 Cancel
               </button>
               <button
-                onClick={handleConfirmApproval}
+                onClick={handleConfirmAction}
                 disabled={processing}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  actionType === 'finance-review'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : actionType === 'admin-approve'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                }`}
               >
-                {processing ? 'Processing...' : 'Confirm Approval'}
+                {processing ? 'Processing...' :
+                  actionType === 'finance-review' ? 'Confirm Review' :
+                  actionType === 'admin-approve' ? 'Approve & Release' :
+                  'Confirm Rejection'}
               </button>
             </div>
           </div>
