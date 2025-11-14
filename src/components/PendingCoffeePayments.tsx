@@ -65,7 +65,7 @@ export const PendingCoffeePayments = () => {
 
         supabase
           .from('supplier_advances')
-          .select('supplier_id, amount, status'),
+          .select('supplier_id, amount_ugx, outstanding_ugx, is_closed'),
 
         supabase
           .from('finance_cash_balance')
@@ -89,9 +89,9 @@ export const PendingCoffeePayments = () => {
         const calculatedAmount = record.kilograms * pricePerKg
 
         const activeAdvances = advancesResult.data?.filter(
-          (a: any) => a.supplier_id === record.supplier_id && a.status === 'active'
+          (a: any) => a.supplier_id === record.supplier_id && !a.is_closed
         ) || []
-        const totalAdvance = activeAdvances.reduce((sum: number, a: any) => sum + Number(a.amount), 0)
+        const totalAdvance = activeAdvances.reduce((sum: number, a: any) => sum + Number(a.outstanding_ugx || a.amount_ugx), 0)
 
         return {
           ...record,
@@ -155,9 +155,9 @@ export const PendingCoffeePayments = () => {
       if (payment.has_advance) {
         const { error: advanceError } = await supabase
           .from('supplier_advances')
-          .update({ status: 'recovered' })
+          .update({ is_closed: true, outstanding_ugx: 0 })
           .eq('supplier_id', payment.supplier_id)
-          .eq('status', 'active')
+          .eq('is_closed', false)
 
         if (advanceError) throw advanceError
       }
