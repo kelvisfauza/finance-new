@@ -5,6 +5,7 @@ import {
   HandCoins,
   Wallet,
   Receipt,
+  FileText as FileTextIcon,
   Users,
   FileText,
   Settings
@@ -17,6 +18,7 @@ const navItems = [
   { path: '/supplier-advances', label: 'Supplier Advances', icon: HandCoins },
   { path: '/cash-management', label: 'Cash Management', icon: Wallet },
   { path: '/expenses', label: 'Expenses', icon: Receipt },
+  { path: '/requisitions', label: 'Requisitions', icon: FileTextIcon },
   { path: '/hr-payments', label: 'HR Payments', icon: Users },
   { path: '/reports', label: 'Reports', icon: FileText },
 ]

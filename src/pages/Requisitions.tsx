@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
-import { Receipt, CheckCircle, Clock, XCircle, Download, Search } from 'lucide-react'
+import { FileText, CheckCircle, Clock, XCircle, Download, Search } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 
-interface Expense {
+interface Requisition {
   id: string
   type: string
   title: string
@@ -22,71 +22,70 @@ interface Expense {
   details?: any
 }
 
-export const Expenses = () => {
-  const [expenses, setExpenses] = useState<Expense[]>([])
-  const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
+export const Requisitions = () => {
+  const [requisitions, setRequisitions] = useState<Requisition[]>([])
+  const [filteredRequisitions, setFilteredRequisitions] = useState<Requisition[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('Pending')
-  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
+  const [selectedRequisition, setSelectedRequisition] = useState<Requisition | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [processing, setProcessing] = useState(false)
 
   useEffect(() => {
-    fetchExpenses()
+    fetchRequisitions()
   }, [])
 
   useEffect(() => {
-    filterExpenses()
-  }, [expenses, searchTerm, statusFilter])
+    filterRequisitions()
+  }, [requisitions, searchTerm, statusFilter])
 
-  const fetchExpenses = async () => {
+  const fetchRequisitions = async () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
         .from('approval_requests')
         .select('*')
-        .in('type', ['Expense Request', 'Company Expense', 'Field Financing Request'])
+        .eq('type', 'Requisition')
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
-      setExpenses(data || [])
+      setRequisitions(data || [])
     } catch (error: any) {
-      console.error('Error fetching expenses:', error)
-      alert('Failed to fetch expenses')
+      console.error('Error fetching requisitions:', error)
+      alert('Failed to fetch requisitions')
     } finally {
       setLoading(false)
     }
   }
 
-  const filterExpenses = () => {
-    let filtered = expenses
+  const filterRequisitions = () => {
+    let filtered = requisitions
 
     if (statusFilter) {
-      filtered = filtered.filter(expense => expense.status === statusFilter)
+      filtered = filtered.filter(req => req.status === statusFilter)
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(expense =>
-        expense.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expense.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expense.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expense.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expense.requestedby?.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(req =>
+        req.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        req.requestedby?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
-    setFilteredExpenses(filtered)
+    setFilteredRequisitions(filtered)
   }
 
-  const handleApprove = (expense: Expense) => {
-    setSelectedExpense(expense)
+  const handleApprove = (requisition: Requisition) => {
+    setSelectedRequisition(requisition)
     setShowModal(true)
   }
 
-  const handleReject = async (expense: Expense) => {
-    if (!confirm(`Are you sure you want to reject this expense: ${expense.title}?`)) return
+  const handleReject = async (requisition: Requisition) => {
+    if (!confirm(`Are you sure you want to reject this requisition: ${requisition.title}?`)) return
 
     try {
       setProcessing(true)
@@ -97,22 +96,22 @@ export const Expenses = () => {
           status: 'Rejected',
           updated_at: new Date().toISOString()
         })
-        .eq('id', expense.id)
+        .eq('id', requisition.id)
 
       if (error) throw error
 
-      alert('Expense rejected')
-      fetchExpenses()
+      alert('Requisition rejected')
+      fetchRequisitions()
     } catch (error: any) {
-      console.error('Error rejecting expense:', error)
-      alert(`Failed to reject expense: ${error.message}`)
+      console.error('Error rejecting requisition:', error)
+      alert(`Failed to reject requisition: ${error.message}`)
     } finally {
       setProcessing(false)
     }
   }
 
   const handleConfirmApproval = async () => {
-    if (!selectedExpense) return
+    if (!selectedRequisition) return
 
     try {
       setProcessing(true)
@@ -123,45 +122,44 @@ export const Expenses = () => {
           status: 'Approved',
           updated_at: new Date().toISOString()
         })
-        .eq('id', selectedExpense.id)
+        .eq('id', selectedRequisition.id)
 
       if (updateError) throw updateError
 
       const { error: transactionError } = await supabase
         .from('finance_transactions')
         .insert({
-          type: 'Expense',
-          description: selectedExpense.title,
-          amount: selectedExpense.amount,
+          type: 'Requisition',
+          description: selectedRequisition.title,
+          amount: selectedRequisition.amount,
           date: new Date().toISOString().split('T')[0]
         })
 
       if (transactionError) throw transactionError
 
-      alert('Expense approved successfully')
+      alert('Requisition approved successfully')
       setShowModal(false)
-      setSelectedExpense(null)
-      fetchExpenses()
+      setSelectedRequisition(null)
+      fetchRequisitions()
     } catch (error: any) {
-      console.error('Error approving expense:', error)
-      alert(`Failed to approve expense: ${error.message}`)
+      console.error('Error approving requisition:', error)
+      alert(`Failed to approve requisition: ${error.message}`)
     } finally {
       setProcessing(false)
     }
   }
 
   const handleExport = () => {
-    const exportData = filteredExpenses.map(expense => ({
-      Type: expense.type,
-      Title: expense.title,
-      Amount: expense.amount,
-      Status: expense.status,
-      Priority: expense.priority,
-      Department: expense.department,
-      RequestedBy: expense.requestedby,
-      DateRequested: expense.daterequested
+    const exportData = filteredRequisitions.map(req => ({
+      Title: req.title,
+      Amount: req.amount,
+      Status: req.status,
+      Priority: req.priority,
+      Department: req.department,
+      RequestedBy: req.requestedby,
+      DateRequested: req.daterequested
     }))
-    exportToCSV(exportData, `expenses-${statusFilter}-${new Date().toISOString().split('T')[0]}`)
+    exportToCSV(exportData, `requisitions-${statusFilter}-${new Date().toISOString().split('T')[0]}`)
   }
 
   if (loading) {
@@ -169,7 +167,7 @@ export const Expenses = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading expenses...</p>
+          <p className="text-gray-600">Loading requisitions...</p>
         </div>
       </div>
     )
@@ -179,8 +177,8 @@ export const Expenses = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Expenses</h1>
-          <p className="text-gray-600">Review and approve expense requests</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Requisitions</h1>
+          <p className="text-gray-600">Review and approve purchase requisitions</p>
         </div>
         <PermissionGate roles={['Super Admin', 'Manager', 'Administrator']}>
           <button
@@ -200,7 +198,7 @@ export const Expenses = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search by description or category..."
+                placeholder="Search by title, department, or requester..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
@@ -225,10 +223,10 @@ export const Expenses = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Title</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Department</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Requested By</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Priority</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Amount</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
@@ -236,54 +234,64 @@ export const Expenses = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredExpenses.length === 0 ? (
+              {filteredRequisitions.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-8 text-gray-500">
-                    No expenses found
+                    No requisitions found
                   </td>
                 </tr>
               ) : (
-                filteredExpenses.map((expense) => (
-                  <tr key={expense.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">
-                      <span className="text-xs font-medium text-gray-600">{expense.type}</span>
-                    </td>
-                    <td className="py-3 px-4">{expense.title}</td>
-                    <td className="py-3 px-4">{expense.department}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{expense.requestedby}</td>
-                    <td className="py-3 px-4 text-right font-semibold">{formatCurrency(expense.amount)}</td>
+                filteredRequisitions.map((requisition) => (
+                  <tr key={requisition.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4 font-medium">{requisition.title}</td>
+                    <td className="py-3 px-4">{requisition.department}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{requisition.requestedby}</td>
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        expense.status === 'Approved'
+                        requisition.priority === 'Urgent'
+                          ? 'bg-red-100 text-red-800'
+                          : requisition.priority === 'High'
+                          ? 'bg-orange-100 text-orange-800'
+                          : requisition.priority === 'Medium'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {requisition.priority}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right font-semibold">{formatCurrency(requisition.amount)}</td>
+                    <td className="py-3 px-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        requisition.status === 'Approved'
                           ? 'bg-green-100 text-green-800'
-                          : expense.status === 'Rejected'
+                          : requisition.status === 'Rejected'
                           ? 'bg-red-100 text-red-800'
                           : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {expense.status === 'Approved' ? (
+                        {requisition.status === 'Approved' ? (
                           <CheckCircle className="w-3 h-3 mr-1" />
-                        ) : expense.status === 'Rejected' ? (
+                        ) : requisition.status === 'Rejected' ? (
                           <XCircle className="w-3 h-3 mr-1" />
                         ) : (
                           <Clock className="w-3 h-3 mr-1" />
                         )}
-                        {expense.status}
+                        {requisition.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-sm">{expense.daterequested}</td>
+                    <td className="py-3 px-4 text-sm">{requisition.daterequested}</td>
                     <td className="py-3 px-4 text-center">
-                      {expense.status === 'Pending' && (
+                      {requisition.status === 'Pending' && (
                         <PermissionGate roles={['Super Admin', 'Manager', 'Administrator']}>
                           <div className="flex justify-center gap-2">
                             <button
-                              onClick={() => handleApprove(expense)}
+                              onClick={() => handleApprove(requisition)}
                               disabled={processing}
                               className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                             >
                               Approve
                             </button>
                             <button
-                              onClick={() => handleReject(expense)}
+                              onClick={() => handleReject(requisition)}
                               disabled={processing}
                               className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
                             >
@@ -301,41 +309,41 @@ export const Expenses = () => {
         </div>
       </div>
 
-      {showModal && selectedExpense && (
+      {showModal && selectedRequisition && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
             <div className="bg-gradient-to-r from-orange-600 to-orange-700 px-6 py-4 rounded-t-2xl">
-              <h3 className="text-xl font-semibold text-white">Approve Expense</h3>
+              <h3 className="text-xl font-semibold text-white">Approve Requisition</h3>
             </div>
 
             <div className="p-6 space-y-4">
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div className="space-y-2 text-sm">
                   <div>
-                    <p className="text-gray-600">Type</p>
-                    <p className="font-semibold">{selectedExpense.type}</p>
-                  </div>
-                  <div>
                     <p className="text-gray-600">Title</p>
-                    <p className="font-semibold">{selectedExpense.title}</p>
+                    <p className="font-semibold">{selectedRequisition.title}</p>
                   </div>
                   <div>
                     <p className="text-gray-600">Department</p>
-                    <p className="font-semibold">{selectedExpense.department}</p>
+                    <p className="font-semibold">{selectedRequisition.department}</p>
                   </div>
                   <div>
                     <p className="text-gray-600">Requested By</p>
-                    <p className="font-semibold">{selectedExpense.requestedby}</p>
+                    <p className="font-semibold">{selectedRequisition.requestedby}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Priority</p>
+                    <p className="font-semibold">{selectedRequisition.priority}</p>
                   </div>
                   <div>
                     <p className="text-gray-600">Amount</p>
-                    <p className="text-2xl font-bold text-orange-700">{formatCurrency(selectedExpense.amount)}</p>
+                    <p className="text-2xl font-bold text-orange-700">{formatCurrency(selectedRequisition.amount)}</p>
                   </div>
                 </div>
               </div>
 
               <p className="text-sm text-gray-600">
-                Are you sure you want to approve this expense? This action cannot be undone.
+                Are you sure you want to approve this requisition? This action cannot be undone.
               </p>
             </div>
 
@@ -343,7 +351,7 @@ export const Expenses = () => {
               <button
                 onClick={() => {
                   setShowModal(false)
-                  setSelectedExpense(null)
+                  setSelectedRequisition(null)
                 }}
                 disabled={processing}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"

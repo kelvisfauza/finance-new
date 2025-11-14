@@ -8,6 +8,7 @@ import { CoffeePayments } from './pages/CoffeePayments'
 import { SupplierAdvances } from './pages/SupplierAdvances'
 import { CashManagement } from './pages/CashManagement'
 import { Expenses } from './pages/Expenses'
+import { Requisitions } from './pages/Requisitions'
 import { HRPayments } from './pages/HRPayments'
 import { Reports } from './pages/Reports'
 import { Settings } from './pages/Settings'
@@ -32,6 +33,7 @@ function App() {
             <Route path="supplier-advances" element={<SupplierAdvances />} />
             <Route path="cash-management" element={<CashManagement />} />
             <Route path="expenses" element={<Expenses />} />
+            <Route path="requisitions" element={<Requisitions />} />
             <Route path="hr-payments" element={<HRPayments />} />
             <Route path="reports" element={<Reports />} />
             <Route path="reports/:reportType" element={<Reports />} />
