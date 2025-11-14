@@ -27,7 +27,7 @@ export const Requisitions = () => {
   const [filteredRequisitions, setFilteredRequisitions] = useState<Requisition[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('Pending')
+  const [statusFilter, setStatusFilter] = useState<string>('')
   const [selectedRequisition, setSelectedRequisition] = useState<Requisition | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [processing, setProcessing] = useState(false)

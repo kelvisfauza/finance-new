@@ -27,7 +27,7 @@ export const Expenses = () => {
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('Pending')
+  const [statusFilter, setStatusFilter] = useState<string>('')
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [processing, setProcessing] = useState(false)
