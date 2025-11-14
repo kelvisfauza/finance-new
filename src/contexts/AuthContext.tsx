@@ -106,22 +106,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) throw error
 
     if (data.user) {
-      await fetchEmployee(data.user.id)
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('auth_user_id', data.user.id)
+        .eq('status', 'Active')
+        .maybeSingle()
 
-      if (!employee) {
+      if (employeeError) throw employeeError
+
+      if (!employeeData || employeeData.disabled) {
         await supabase.auth.signOut()
         throw new Error('No active employee record found')
       }
 
       const hasAccess =
-        employee.department === 'Finance' ||
-        employee.permissions.includes('Finance') ||
-        ['Super Admin', 'Manager', 'Administrator'].includes(employee.role)
+        employeeData.department === 'Finance' ||
+        employeeData.permissions.includes('Finance') ||
+        ['Super Admin', 'Manager', 'Administrator'].includes(employeeData.role)
 
       if (!hasAccess) {
         await supabase.auth.signOut()
         throw new Error('Access denied. Finance department access required.')
       }
+
+      setEmployee(employeeData)
     }
   }
 
