@@ -4,8 +4,6 @@ import { formatCurrency, formatDate } from '../lib/utils'
 import { Wallet, TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
 import { PendingCashDeposits } from '../components/PendingCashDeposits'
 import { PendingCoffeePayments } from '../components/PendingCoffeePayments'
-import { FinanceMonthlyReport } from '../components/FinanceMonthlyReport'
-import { PurchaseReport } from '../components/PurchaseReport'
 
 interface CashTransaction {
   id: string
@@ -33,7 +31,7 @@ export const CashManagement = () => {
   const [balance, setBalance] = useState<CashBalance | null>(null)
   const [loading, setLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0])
-  const [activeTab, setActiveTab] = useState<'overview' | 'deposits' | 'payments' | 'finance-report' | 'purchases'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'deposits' | 'payments'>('overview')
 
   useEffect(() => {
     fetchData()
@@ -99,7 +97,7 @@ export const CashManagement = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Cash Management</h1>
-        <p className="text-gray-600">Manage cash flow, deposits, payments, and financial reporting</p>
+        <p className="text-gray-600">Manage cash flow, deposits, and payments</p>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -133,26 +131,6 @@ export const CashManagement = () => {
             }`}
           >
             Pending Payments
-          </button>
-          <button
-            onClick={() => setActiveTab('finance-report')}
-            className={`px-6 py-3 font-medium transition-colors ${
-              activeTab === 'finance-report'
-                ? 'text-green-700 border-b-2 border-green-700'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Finance Report
-          </button>
-          <button
-            onClick={() => setActiveTab('purchases')}
-            className={`px-6 py-3 font-medium transition-colors ${
-              activeTab === 'purchases'
-                ? 'text-green-700 border-b-2 border-green-700'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Purchase Report
           </button>
         </div>
 
@@ -317,10 +295,6 @@ export const CashManagement = () => {
           {activeTab === 'deposits' && <PendingCashDeposits />}
 
           {activeTab === 'payments' && <PendingCoffeePayments />}
-
-          {activeTab === 'finance-report' && <FinanceMonthlyReport />}
-
-          {activeTab === 'purchases' && <PurchaseReport />}
         </div>
       </div>
     </div>

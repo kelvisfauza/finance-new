@@ -106,7 +106,7 @@ export const PendingCoffeePayments = () => {
       setCashBalance(balanceResult.data?.current_balance || 0)
     } catch (error: any) {
       console.error('Error fetching pending payments:', error)
-      alert('Failed to fetch pending payments')
+      alert(`Failed to fetch pending payments: ${error.message}`)
     } finally {
       setLoading(false)
     }
