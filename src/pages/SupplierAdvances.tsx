@@ -40,8 +40,13 @@ export const SupplierAdvances = () => {
 
       const [supabaseData, firestoreData] = await Promise.all([
         supabase
-          .from('finance_advances')
-          .select('*')
+          .from('supplier_advances')
+          .select(`
+            *,
+            suppliers (
+              name
+            )
+          `)
           .order('created_at', { ascending: false}),
         fetchSupplierAdvances()
       ])
@@ -50,15 +55,15 @@ export const SupplierAdvances = () => {
 
       const supabaseAdvances: Advance[] = (supabaseData.data || []).map((item: any) => ({
         id: item.id,
-        supplier_name: item.reference || 'Unknown',
-        amount: Number(item.amount || 0),
-        recovered: 0,
-        balance: Number(item.amount || 0),
-        reference: item.reference || '',
-        notes: item.notes || '',
-        status: item.status || 'Pending',
+        supplier_name: item.suppliers?.name || 'Unknown Supplier',
+        amount: Number(item.amount_ugx || 0),
+        recovered: Number(item.amount_ugx || 0) - Number(item.outstanding_ugx || 0),
+        balance: Number(item.outstanding_ugx || 0),
+        reference: item.id.slice(0, 8).toUpperCase(),
+        notes: item.description || '',
+        status: item.is_closed ? 'Cleared' : 'Pending',
         created_at: item.created_at,
-        cleared_at: item.cleared_at,
+        cleared_at: item.is_closed ? item.updated_at : null,
         source: 'supabase' as const
       }))
 
