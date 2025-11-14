@@ -39,7 +39,6 @@ export const PendingCoffeePayments = () => {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
   const [cashBalance, setCashBalance] = useState(0)
-  const [confirmPayment, setConfirmPayment] = useState<PendingPayment | null>(null)
 
   useEffect(() => {
     fetchPendingPayments()
@@ -117,19 +116,8 @@ export const PendingCoffeePayments = () => {
     const finalAmount = Math.max(0, payment.calculated_amount - payment.advance_amount)
 
     if (cashBalance < finalAmount) {
-      alert(`Insufficient cash balance. Available: ${formatCurrency(cashBalance)}, Required: ${formatCurrency(finalAmount)}`)
       return
     }
-
-    setConfirmPayment(payment)
-  }
-
-  const confirmProcessPayment = async () => {
-    if (!confirmPayment) return
-    const payment = confirmPayment
-    const finalAmount = Math.max(0, payment.calculated_amount - payment.advance_amount)
-
-    setConfirmPayment(null)
 
     try {
       setProcessing(payment.id)
@@ -198,11 +186,9 @@ export const PendingCoffeePayments = () => {
 
       if (balanceError) throw balanceError
 
-      alert('Payment processed successfully')
       fetchPendingPayments()
     } catch (error: any) {
       console.error('Error processing payment:', error)
-      alert(`Failed to process payment: ${error.message}`)
     } finally {
       setProcessing(null)
     }
@@ -302,62 +288,6 @@ export const PendingCoffeePayments = () => {
         </div>
       )}
 
-      {confirmPayment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="p-6">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Confirm Payment</h3>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between py-2 border-b border-gray-200">
-                  <span className="text-gray-600">Supplier:</span>
-                  <span className="font-semibold text-gray-900">{confirmPayment.supplier_name}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gray-200">
-                  <span className="text-gray-600">Batch Number:</span>
-                  <span className="font-semibold text-gray-900">{confirmPayment.batch_number}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gray-200">
-                  <span className="text-gray-600">Weight:</span>
-                  <span className="font-semibold text-gray-900">{confirmPayment.kilograms.toLocaleString()} kg</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gray-200">
-                  <span className="text-gray-600">Total Amount:</span>
-                  <span className="font-semibold text-gray-900">{formatCurrency(confirmPayment.calculated_amount)}</span>
-                </div>
-                {confirmPayment.has_advance && (
-                  <div className="flex justify-between py-2 border-b border-gray-200">
-                    <span className="text-gray-600">Less Advance:</span>
-                    <span className="font-semibold text-orange-700">-{formatCurrency(confirmPayment.advance_amount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between py-3 bg-green-50 px-3 rounded">
-                  <span className="text-gray-900 font-semibold">Net Payment:</span>
-                  <span className="font-bold text-green-700 text-lg">
-                    {formatCurrency(Math.max(0, confirmPayment.calculated_amount - confirmPayment.advance_amount))}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setConfirmPayment(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmProcessPayment}
-                  disabled={processing !== null}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {processing ? 'Processing...' : 'Confirm Payment'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
