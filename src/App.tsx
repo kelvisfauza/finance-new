@@ -726,19 +726,19 @@ const Payments = () => {
               <thead>
                 <tr className="bg-gray-50">
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Lot ID
+                    Payment ID
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Supplier
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantity
+                    Payment Method
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Unit Price
+                    Batch Number
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Amount
+                    Amount
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
@@ -760,13 +760,8 @@ const Payments = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {payment.supplier || 'Unknown Supplier'}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Batch: {payment.batch_number || 'N/A'}
-                        </div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {payment.supplier || 'Unknown Supplier'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -775,8 +770,8 @@ const Payments = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        N/A
+                      <div className="text-sm text-gray-600">
+                        {payment.batch_number || 'N/A'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
