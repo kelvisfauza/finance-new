@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { Users, Download, Search, CheckCircle, Clock, Check, X } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
+import { useSMSNotifications } from '../hooks/useSMSNotifications'
+import { useAuth } from '../contexts/AuthContext'
 
 interface SalaryPayment {
   id: string
@@ -33,6 +35,9 @@ export const HRPayments = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('pending')
   const [processingId, setProcessingId] = useState<string | null>(null)
+
+  const { sendApprovalResponseSMS } = useSMSNotifications()
+  const { user } = useAuth()
 
   useEffect(() => {
     fetchPayments()
@@ -90,13 +95,30 @@ export const HRPayments = () => {
         .update({
           status: 'approved',
           admin_approved_at: new Date().toISOString(),
-          admin_approved_by: 'Admin',
+          admin_approved_by: user?.email || 'Admin',
           approval_stage: 'admin_approved',
           updated_at: new Date().toISOString()
         })
         .eq('id', payment.id)
 
       if (error) throw error
+
+      const { data: employeeData } = await supabase
+        .from('employees')
+        .select('name, phone')
+        .eq('id', payment.user_id)
+        .maybeSingle()
+
+      if (employeeData?.phone) {
+        await sendApprovalResponseSMS(
+          employeeData.name,
+          employeeData.phone,
+          payment.amount,
+          'approved',
+          user?.email || 'Admin',
+          payment.request_type
+        )
+      }
 
       await fetchPayments()
       alert('Payment request approved successfully')
@@ -127,6 +149,23 @@ export const HRPayments = () => {
         .eq('id', payment.id)
 
       if (error) throw error
+
+      const { data: employeeData } = await supabase
+        .from('employees')
+        .select('name, phone')
+        .eq('id', payment.user_id)
+        .maybeSingle()
+
+      if (employeeData?.phone) {
+        await sendApprovalResponseSMS(
+          employeeData.name,
+          employeeData.phone,
+          payment.amount,
+          'rejected',
+          user?.email || 'Admin',
+          payment.request_type
+        )
+      }
 
       await fetchPayments()
       alert('Payment request rejected')
