@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { useEffect } from 'react'
+import { supabase } from './lib/supabaseClient'
 
 // Icons as React components
 const DashboardIcon = () => (
@@ -313,6 +315,53 @@ const StatusBadge = ({ status }: { status: string }) => {
 }
 
 const Dashboard = () => {
+  const [pendingPayments, setPendingPayments] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    fetchPendingPayments()
+  }, [])
+
+  const fetchPendingPayments = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Fetch pending coffee payments from finance_coffee_lots
+      const { data, error } = await supabase
+        .from('finance_coffee_lots')
+        .select(`
+          id,
+          unit_price_ugx,
+          quantity_kg,
+          total_amount_ugx,
+          finance_status,
+          assessed_at,
+          suppliers (
+            name,
+            code
+          )
+        `)
+        .eq('finance_status', 'READY_FOR_FINANCE')
+        .order('assessed_at', { ascending: false })
+        .limit(10)
+
+      if (error) {
+        console.error('Error fetching pending payments:', error)
+        setError(error.message)
+        return
+      }
+
+      setPendingPayments(data || [])
+    } catch (err) {
+      console.error('Error:', err)
+      setError('Failed to fetch pending payments')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-8">
       {/* Metrics Grid */}
@@ -345,49 +394,88 @@ const Dashboard = () => {
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-100">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Recent Payments</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Pending Coffee Payments</h3>
               <button className="text-emerald-600 hover:text-emerald-700 text-sm font-medium">
                 View All
               </button>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="table-enhanced w-full">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Supplier
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recentPayments.slice(0, 4).map((payment) => (
-                  <tr key={payment.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{payment.supplier}</div>
-                        <div className="text-sm text-gray-500">{formatDate(payment.date)}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {formatCurrency(payment.amount)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge status={payment.status} />
-                    </td>
+          {loading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
+              <p className="text-gray-500 mt-2">Loading pending payments...</p>
+            </div>
+          ) : error ? (
+            <div className="p-8 text-center">
+              <div className="text-red-500 mb-2">⚠️</div>
+              <p className="text-red-600 font-medium">Error loading payments</p>
+              <p className="text-gray-500 text-sm">{error}</p>
+              <button 
+                onClick={fetchPendingPayments}
+                className="mt-3 text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : pendingPayments.length === 0 ? (
+            <div className="p-8 text-center">
+              <div className="text-gray-400 mb-2">📋</div>
+              <p className="text-gray-500">No pending coffee payments</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table-enhanced w-full">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Supplier
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Quantity (KG)
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {pendingPayments.map((payment) => (
+                    <tr key={payment.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {payment.suppliers?.name || 'Unknown Supplier'}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            Code: {payment.suppliers?.code || 'N/A'}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {Number(payment.quantity_kg).toLocaleString()} kg
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          @ {formatCurrency(payment.unit_price_ugx)}/kg
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {formatCurrency(payment.total_amount_ugx)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <StatusBadge status="Pending" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Recent Expenses */}
@@ -444,6 +532,52 @@ const Dashboard = () => {
 }
 
 const Payments = () => {
+  const [payments, setPayments] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    fetchPayments()
+  }, [])
+
+  const fetchPayments = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Fetch all coffee payments from finance_coffee_lots
+      const { data, error } = await supabase
+        .from('finance_coffee_lots')
+        .select(`
+          id,
+          unit_price_ugx,
+          quantity_kg,
+          total_amount_ugx,
+          finance_status,
+          assessed_at,
+          suppliers (
+            name,
+            code
+          )
+        `)
+        .order('assessed_at', { ascending: false })
+        .limit(50)
+
+      if (error) {
+        console.error('Error fetching payments:', error)
+        setError(error.message)
+        return
+      }
+
+      setPayments(data || [])
+    } catch (err) {
+      console.error('Error:', err)
+      setError('Failed to fetch payments')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -501,68 +635,119 @@ const Payments = () => {
 
       {/* Payments Table */}
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="table-enhanced w-full">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment ID
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Supplier
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Method
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {recentPayments.map((payment) => (
-                <tr key={payment.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm font-mono text-gray-900">{payment.id}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{payment.supplier}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {formatCurrency(payment.amount)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-600">{payment.method}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-600">{formatDate(payment.date)}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <StatusBadge status={payment.status} />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button className="text-emerald-600 hover:text-emerald-900">View</button>
-                      <button className="text-blue-600 hover:text-blue-900">Edit</button>
-                      <button className="text-red-600 hover:text-red-900">Delete</button>
-                    </div>
-                  </td>
+        {loading ? (
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
+            <p className="text-gray-500 mt-2">Loading payments...</p>
+          </div>
+        ) : error ? (
+          <div className="p-8 text-center">
+            <div className="text-red-500 mb-2">⚠️</div>
+            <p className="text-red-600 font-medium">Error loading payments</p>
+            <p className="text-gray-500 text-sm">{error}</p>
+            <button 
+              onClick={fetchPayments}
+              className="mt-3 text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+            >
+              Try Again
+            </button>
+          </div>
+        ) : payments.length === 0 ? (
+          <div className="p-8 text-center">
+            <div className="text-gray-400 mb-2">📋</div>
+            <p className="text-gray-500">No coffee payments found</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table-enhanced w-full">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Lot ID
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Supplier
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Quantity
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Unit Price
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total Amount
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {payments.map((payment) => (
+                  <tr key={payment.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm font-mono text-gray-900">
+                        {payment.id.slice(0, 8)}...
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {payment.suppliers?.name || 'Unknown Supplier'}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {payment.suppliers?.code || 'N/A'}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {Number(payment.quantity_kg).toLocaleString()} kg
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatCurrency(payment.unit_price_ugx)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatCurrency(payment.total_amount_ugx)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-gray-600">
+                        {formatDate(payment.assessed_at)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <StatusBadge 
+                        status={payment.finance_status === 'READY_FOR_FINANCE' ? 'Pending' : 
+                               payment.finance_status === 'APPROVED_FOR_PAYMENT' ? 'Approved' : 
+                               payment.finance_status === 'PAID' ? 'Paid' : payment.finance_status} 
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button className="text-emerald-600 hover:text-emerald-900">View</button>
+                        {payment.finance_status === 'READY_FOR_FINANCE' && (
+                          <button className="text-blue-600 hover:text-blue-900">Approve</button>
+                        )}
+                        <button className="text-red-600 hover:text-red-900">Reject</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )
