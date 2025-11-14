@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
-import { Users, Download, Search, CheckCircle, Clock } from 'lucide-react'
+import { Users, Download, Search, CheckCircle, Clock, Check, X } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 
 interface SalaryPayment {
@@ -32,6 +32,7 @@ export const HRPayments = () => {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('pending')
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPayments()
@@ -76,6 +77,65 @@ export const HRPayments = () => {
     }
 
     setFilteredPayments(filtered)
+  }
+
+  const handleApprove = async (payment: SalaryPayment) => {
+    if (processingId) return
+
+    try {
+      setProcessingId(payment.id)
+
+      const { error } = await supabase
+        .from('money_requests')
+        .update({
+          status: 'approved',
+          admin_approved_at: new Date().toISOString(),
+          admin_approved_by: 'Admin',
+          approval_stage: 'admin_approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', payment.id)
+
+      if (error) throw error
+
+      await fetchPayments()
+      alert('Payment request approved successfully')
+    } catch (error: any) {
+      console.error('Error approving payment:', error)
+      alert('Failed to approve payment request')
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleReject = async (payment: SalaryPayment) => {
+    if (processingId) return
+
+    const reason = prompt('Please enter rejection reason:')
+    if (!reason) return
+
+    try {
+      setProcessingId(payment.id)
+
+      const { error } = await supabase
+        .from('money_requests')
+        .update({
+          status: 'rejected',
+          rejection_reason: reason,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', payment.id)
+
+      if (error) throw error
+
+      await fetchPayments()
+      alert('Payment request rejected')
+    } catch (error: any) {
+      console.error('Error rejecting payment:', error)
+      alert('Failed to reject payment request')
+    } finally {
+      setProcessingId(null)
+    }
   }
 
   const handleExport = () => {
@@ -164,12 +224,13 @@ export const HRPayments = () => {
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Approval Stage</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
+                <th className="text-center py-3 px-4 font-semibold text-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-gray-500">
+                  <td colSpan={8} className="text-center py-8 text-gray-500">
                     No salary payments found
                   </td>
                 </tr>
@@ -207,6 +268,32 @@ export const HRPayments = () => {
                         {payment.finance_approved_at && (
                           <div className="text-gray-500 text-xs">
                             Finance: {formatDate(payment.finance_approved_at)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        {payment.status.toLowerCase() === 'pending' ? (
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleApprove(payment)}
+                              disabled={processingId === payment.id}
+                              className="flex items-center px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                              <Check className="w-4 h-4 mr-1" />
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleReject(payment)}
+                              disabled={processingId === payment.id}
+                              className="flex items-center px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            >
+                              <X className="w-4 h-4 mr-1" />
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="text-center text-sm text-gray-400">
+                            {payment.status.toLowerCase() === 'approved' ? 'Approved' : payment.status.toLowerCase() === 'rejected' ? 'Rejected' : 'Completed'}
                           </div>
                         )}
                       </td>
