@@ -337,12 +337,19 @@ export const HRPayments = () => {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={async () => {
-                                const { data } = await supabase
-                                  .from('employees')
-                                  .select('name, employee_id, department, position')
-                                  .eq('id', payment.user_id)
+                                const { data: profile } = await supabase
+                                  .from('profiles')
+                                  .select('name, phone')
+                                  .eq('user_id', payment.user_id)
                                   .maybeSingle()
-                                setEmployeeDetails(data)
+
+                                const { data: authUser } = await supabase.auth.admin.getUserById(payment.user_id)
+
+                                setEmployeeDetails({
+                                  name: profile?.name || payment.requested_by,
+                                  phone: profile?.phone,
+                                  email: authUser?.user?.email
+                                })
                                 setPrintingPayment(payment)
                               }}
                               className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"

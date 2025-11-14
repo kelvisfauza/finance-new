@@ -11,13 +11,16 @@ interface PayslipPrintProps {
     status: string
     approved_by: string | null
     approved_at: string | null
+    finance_approved_by: string | null
+    finance_approved_at: string | null
+    admin_approved_by: string | null
+    admin_approved_at: string | null
     created_at: string
   }
   employeeDetails?: {
     name: string
-    employee_id?: string
-    department?: string
-    position?: string
+    phone?: string
+    email?: string
   }
   onClose: () => void
 }
@@ -28,8 +31,8 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full my-8">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto print:bg-white print:block print:p-0">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full my-8 print:shadow-none print:my-0 print:max-w-none">
         <div className="flex items-center justify-between p-4 border-b print:hidden">
           <h2 className="text-xl font-semibold text-gray-900">Payment Slip Preview</h2>
           <div className="flex items-center gap-2">
@@ -79,25 +82,19 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
               <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Employee Details</h2>
               <div className="space-y-2">
                 <div>
-                  <p className="text-sm text-gray-600">Name</p>
-                  <p className="font-semibold text-gray-900">{employeeDetails?.name || payment.requested_by}</p>
+                  <p className="text-sm text-gray-600">Employee Name</p>
+                  <p className="font-semibold text-gray-900">{employeeDetails?.name || 'N/A'}</p>
                 </div>
-                {employeeDetails?.employee_id && (
+                {employeeDetails?.phone && (
                   <div>
-                    <p className="text-sm text-gray-600">Employee ID</p>
-                    <p className="font-semibold text-gray-900">{employeeDetails.employee_id}</p>
+                    <p className="text-sm text-gray-600">Phone Number</p>
+                    <p className="font-semibold text-gray-900">{employeeDetails.phone}</p>
                   </div>
                 )}
-                {employeeDetails?.department && (
+                {employeeDetails?.email && (
                   <div>
-                    <p className="text-sm text-gray-600">Department</p>
-                    <p className="font-semibold text-gray-900">{employeeDetails.department}</p>
-                  </div>
-                )}
-                {employeeDetails?.position && (
-                  <div>
-                    <p className="text-sm text-gray-600">Position</p>
-                    <p className="font-semibold text-gray-900">{employeeDetails.position}</p>
+                    <p className="text-sm text-gray-600">Email</p>
+                    <p className="font-semibold text-gray-900">{employeeDetails.email}</p>
                   </div>
                 )}
               </div>
@@ -111,20 +108,57 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
                   <p className="font-semibold text-gray-900">{payment.request_type}</p>
                 </div>
                 <div>
+                  <p className="text-sm text-gray-600">Amount</p>
+                  <p className="font-semibold text-gray-900">{formatCurrency(payment.amount)}</p>
+                </div>
+                <div>
                   <p className="text-sm text-gray-600">Request Date</p>
                   <p className="font-semibold text-gray-900">{formatDate(payment.created_at)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Approval Date</p>
-                  <p className="font-semibold text-gray-900">
-                    {payment.approved_at ? formatDate(payment.approved_at) : 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Approved By</p>
-                  <p className="font-semibold text-gray-900">{payment.approved_by || 'N/A'}</p>
+                  <p className="text-sm text-gray-600">Status</p>
+                  <p className="font-semibold text-green-700">{payment.status.toUpperCase()}</p>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Approval History</h2>
+            <div className="space-y-3">
+              {payment.finance_approved_by && (
+                <div className="flex items-start gap-3 bg-gray-50 p-3 rounded-lg">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">Finance Department</p>
+                    <p className="text-xs text-gray-600">Approved by: {payment.finance_approved_by}</p>
+                    {payment.finance_approved_at && (
+                      <p className="text-xs text-gray-500">Date: {formatDate(payment.finance_approved_at)}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {payment.admin_approved_by && (
+                <div className="flex items-start gap-3 bg-gray-50 p-3 rounded-lg">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">Administration</p>
+                    <p className="text-xs text-gray-600">Approved by: {payment.admin_approved_by}</p>
+                    {payment.admin_approved_at && (
+                      <p className="text-xs text-gray-500">Date: {formatDate(payment.admin_approved_at)}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {payment.approved_by && (
+                <div className="flex items-start gap-3 bg-gray-50 p-3 rounded-lg">
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-gray-900">Final Approval</p>
+                    <p className="text-xs text-gray-600">Approved by: {payment.approved_by}</p>
+                    {payment.approved_at && (
+                      <p className="text-xs text-gray-500">Date: {formatDate(payment.approved_at)}</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
