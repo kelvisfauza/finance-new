@@ -315,9 +315,9 @@ const StatusBadge = ({ status }: { status: string }) => {
 }
 
 const Dashboard = () => {
-  const [pendingPayments, setPendingPayments] = useState([])
+  const [pendingPayments, setPendingPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPendingPayments()
@@ -342,7 +342,7 @@ const Dashboard = () => {
 
       console.log('Raw data from finance_coffee_lots:', data)
       setPendingPayments(data || [])
-    } catch (err) {
+    } catch (err: any) {
       console.error('Network error:', err)
       setError(`Network error: ${err.message || 'Failed to connect to database'}`)
     } finally {
@@ -372,7 +372,7 @@ const Dashboard = () => {
           console.log('Connection test successful:', data)
           setConnectionStatus('success')
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Connection test error:', err)
         if (err.message && err.message.includes('Missing Supabase')) {
           setConnectionStatus('config-error')
@@ -591,9 +591,9 @@ const Dashboard = () => {
 }
 
 const Payments = () => {
-  const [payments, setPayments] = useState([])
+  const [payments, setPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchPayments()
@@ -618,7 +618,7 @@ const Payments = () => {
 
       console.log('Payments data:', data)
       setPayments(data || [])
-    } catch (err) {
+    } catch (err: any) {
       console.error('Network error:', err)
       setError(`Network error: ${err.message || 'Failed to connect to database'}`)
     } finally {
