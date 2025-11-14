@@ -31,8 +31,8 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto print:bg-white print:block print:p-0">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full my-8 print:shadow-none print:my-0 print:max-w-none">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 print:bg-white print:block print:p-0">
+      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto print:shadow-none print:my-0 print:max-w-none print:max-h-none print:overflow-visible">
         <div className="flex items-center justify-between p-4 border-b print:hidden">
           <h2 className="text-xl font-semibold text-gray-900">Payment Slip Preview</h2>
           <div className="flex items-center gap-2">
@@ -52,35 +52,35 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
           </div>
         </div>
 
-        <div id="payslip-content" className="p-8">
-          <div className="border-b-4 border-green-700 pb-6 mb-6">
+        <div id="payslip-content" className="p-6 print:p-8">
+          <div className="border-b-4 border-green-700 pb-4 mb-4">
             <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 <img
                   src="/logo without bc.png"
                   alt="Great Pearl Coffee Logo"
-                  className="w-24 h-24 object-contain"
+                  className="w-16 h-16 object-contain"
                 />
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Great Pearl Coffee</h1>
-                  <p className="text-gray-600 mt-1">Kasese, Uganda</p>
-                  <div className="text-sm text-gray-600 mt-2">
+                  <h1 className="text-2xl font-bold text-gray-900">Great Pearl Coffee</h1>
+                  <p className="text-sm text-gray-600">Kasese, Uganda</p>
+                  <div className="text-xs text-gray-600 mt-1">
                     <p>www.greatpearlcoffee.com</p>
                     <p>info@greatpearlcoffee.com</p>
                   </div>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm text-gray-600">Payment Slip</p>
-                <p className="text-lg font-semibold text-gray-900">#{payment.id.slice(0, 8).toUpperCase()}</p>
+                <p className="text-xs text-gray-600">Payment Slip</p>
+                <p className="text-base font-semibold text-gray-900">#{payment.id.slice(0, 8).toUpperCase()}</p>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-8 mb-8">
+          <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Employee Details</h2>
-              <div className="space-y-2">
+              <h2 className="text-base font-semibold text-gray-900 mb-2 border-b pb-1">Employee Details</h2>
+              <div className="space-y-1.5">
                 <div>
                   <p className="text-sm text-gray-600">Employee Name</p>
                   <p className="font-semibold text-gray-900">{employeeDetails?.name || 'N/A'}</p>
@@ -101,8 +101,8 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
             </div>
 
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Payment Details</h2>
-              <div className="space-y-2">
+              <h2 className="text-base font-semibold text-gray-900 mb-2 border-b pb-1">Payment Details</h2>
+              <div className="space-y-1.5">
                 <div>
                   <p className="text-sm text-gray-600">Payment Type</p>
                   <p className="font-semibold text-gray-900">{payment.request_type}</p>
@@ -123,11 +123,11 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
             </div>
           </div>
 
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Approval History</h2>
-            <div className="space-y-3">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-gray-900 mb-2 border-b pb-1">Approval History</h2>
+            <div className="space-y-2">
               {payment.finance_approved_by && (
-                <div className="flex items-start gap-3 bg-gray-50 p-3 rounded-lg">
+                <div className="flex items-start gap-2 bg-gray-50 p-2 rounded">
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-900">Finance Department</p>
                     <p className="text-xs text-gray-600">Approved by: {payment.finance_approved_by}</p>
@@ -138,7 +138,7 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
                 </div>
               )}
               {payment.admin_approved_by && (
-                <div className="flex items-start gap-3 bg-gray-50 p-3 rounded-lg">
+                <div className="flex items-start gap-2 bg-gray-50 p-2 rounded">
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-900">Administration</p>
                     <p className="text-xs text-gray-600">Approved by: {payment.admin_approved_by}</p>
@@ -149,7 +149,7 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
                 </div>
               )}
               {payment.approved_by && (
-                <div className="flex items-start gap-3 bg-gray-50 p-3 rounded-lg">
+                <div className="flex items-start gap-2 bg-gray-50 p-2 rounded">
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-900">Final Approval</p>
                     <p className="text-xs text-gray-600">Approved by: {payment.approved_by}</p>
@@ -163,29 +163,29 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
           </div>
 
           {payment.reason && (
-            <div className="mb-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3 border-b pb-2">Payment Reason</h2>
-              <p className="text-gray-700">{payment.reason}</p>
+            <div className="mb-4">
+              <h2 className="text-base font-semibold text-gray-900 mb-2 border-b pb-1">Payment Reason</h2>
+              <p className="text-sm text-gray-700">{payment.reason}</p>
             </div>
           )}
 
-          <div className="bg-green-50 border-2 border-green-700 rounded-lg p-6 mb-8">
+          <div className="bg-green-50 border-2 border-green-700 rounded-lg p-4 mb-4">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Total Amount</p>
-                <p className="text-4xl font-bold text-green-700">{formatCurrency(payment.amount)}</p>
+                <p className="text-xs text-gray-600 mb-1">Total Amount</p>
+                <p className="text-3xl font-bold text-green-700">{formatCurrency(payment.amount)}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-gray-600 mb-1">Status</p>
-                <span className="inline-block px-4 py-2 bg-green-600 text-white rounded-lg font-semibold">
+                <p className="text-xs text-gray-600 mb-1">Status</p>
+                <span className="inline-block px-3 py-1.5 bg-green-600 text-white rounded font-semibold text-sm">
                   {payment.status.toUpperCase()}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="border-t pt-6 mt-8">
-            <div className="grid grid-cols-2 gap-8 mb-8">
+          <div className="border-t pt-4 mt-4">
+            <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <p className="text-sm text-gray-600 mb-4">Employee Signature</p>
                 <div className="border-t border-gray-400 pt-2">
@@ -201,7 +201,7 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
             </div>
           </div>
 
-          <div className="border-t pt-4 mt-8 text-center text-xs text-gray-500">
+          <div className="border-t pt-3 mt-4 text-center text-xs text-gray-500">
             <p>This is an official payment slip generated by Great Pearl Coffee</p>
             <p className="mt-1">Printed on: {formatDate(new Date().toISOString())}</p>
           </div>
