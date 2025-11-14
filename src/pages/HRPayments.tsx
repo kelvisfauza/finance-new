@@ -415,9 +415,14 @@ export const HRPayments = () => {
       </div>
 
       {printingPayment && (
-        <div className="hidden">
-          <PayslipPrint payment={printingPayment} employeeDetails={employeeDetails} />
-        </div>
+        <PayslipPrint
+          payment={printingPayment}
+          employeeDetails={employeeDetails}
+          onClose={() => {
+            setPrintingPayment(null)
+            setEmployeeDetails(null)
+          }}
+        />
       )}
     </div>
   )

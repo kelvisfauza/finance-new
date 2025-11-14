@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate } from '../lib/utils'
+import { X, Printer } from 'lucide-react'
 
 interface PayslipPrintProps {
   payment: {
@@ -18,24 +19,37 @@ interface PayslipPrintProps {
     department?: string
     position?: string
   }
+  onClose: () => void
 }
 
-export const PayslipPrint = ({ payment, employeeDetails }: PayslipPrintProps) => {
+export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrintProps) => {
   const handlePrint = () => {
     window.print()
   }
 
   return (
-    <>
-      <button
-        onClick={handlePrint}
-        className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm print:hidden"
-      >
-        Print Payslip
-      </button>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full my-8">
+        <div className="flex items-center justify-between p-4 border-b print:hidden">
+          <h2 className="text-xl font-semibold text-gray-900">Payment Slip Preview</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              Print
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+        </div>
 
-      <div className="hidden print:block print:p-8">
-        <div className="max-w-4xl mx-auto bg-white">
+        <div id="payslip-content" className="p-8">
           <div className="border-b-4 border-blue-600 pb-6 mb-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-4">
@@ -159,14 +173,17 @@ export const PayslipPrint = ({ payment, employeeDetails }: PayslipPrintProps) =>
           body * {
             visibility: hidden;
           }
-          .print\\:block, .print\\:block * {
+          #payslip-content, #payslip-content * {
             visibility: visible;
           }
-          .print\\:block {
+          #payslip-content {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
+          }
+          .print\\:hidden {
+            display: none !important;
           }
           @page {
             margin: 0.5in;
@@ -174,6 +191,6 @@ export const PayslipPrint = ({ payment, employeeDetails }: PayslipPrintProps) =>
           }
         }
       `}</style>
-    </>
+    </div>
   )
 }
