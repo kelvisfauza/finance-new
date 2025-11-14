@@ -4,29 +4,28 @@ import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { Coffee, DollarSign, CheckCircle, Clock, Download, Search } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 
-interface CoffeeLot {
+interface PaymentRecord {
   id: string
-  coffee_record_id: string
-  supplier_id: string
-  supplier_name?: string
-  kilograms: number
-  price_per_kg: number
+  supplier: string
   amount: number
-  advance_amount?: number
-  net_amount: number
-  finance_status: string
+  amount_paid: number
+  balance: number
+  status: string
+  method: string
   batch_number?: string
   date: string
+  quality_assessment_id?: string
   created_at: string
+  updated_at: string
 }
 
 export const CoffeePayments = () => {
-  const [lots, setLots] = useState<CoffeeLot[]>([])
-  const [filteredLots, setFilteredLots] = useState<CoffeeLot[]>([])
+  const [lots, setLots] = useState<PaymentRecord[]>([])
+  const [filteredLots, setFilteredLots] = useState<PaymentRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('pending')
-  const [selectedLot, setSelectedLot] = useState<CoffeeLot | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string>('Pending')
+  const [selectedLot, setSelectedLot] = useState<PaymentRecord | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [paymentAmount, setPaymentAmount] = useState('')
@@ -46,28 +45,16 @@ export const CoffeePayments = () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
-        .from('finance_coffee_lots')
-        .select(`
-          *,
-          suppliers:supplier_id (
-            name,
-            code
-          )
-        `)
+        .from('payment_records')
+        .select('*')
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
-      const enrichedLots = data?.map((lot: any) => ({
-        ...lot,
-        supplier_name: lot.suppliers?.name || 'Unknown Supplier',
-        net_amount: Number(lot.amount) - Number(lot.advance_amount || 0)
-      })) || []
-
-      setLots(enrichedLots)
+      setLots(data || [])
     } catch (error: any) {
-      console.error('Error fetching lots:', error)
-      alert('Failed to fetch coffee lots')
+      console.error('Error fetching payment records:', error)
+      alert('Failed to fetch payment records')
     } finally {
       setLoading(false)
     }
@@ -77,12 +64,12 @@ export const CoffeePayments = () => {
     let filtered = lots
 
     if (statusFilter) {
-      filtered = filtered.filter(lot => lot.finance_status === statusFilter)
+      filtered = filtered.filter(lot => lot.status === statusFilter)
     }
 
     if (searchTerm) {
       filtered = filtered.filter(lot =>
-        lot.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lot.supplier?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lot.batch_number?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
@@ -90,9 +77,9 @@ export const CoffeePayments = () => {
     setFilteredLots(filtered)
   }
 
-  const handleProcessPayment = (lot: CoffeeLot) => {
+  const handleProcessPayment = (lot: PaymentRecord) => {
     setSelectedLot(lot)
-    setPaymentAmount(lot.net_amount.toString())
+    setPaymentAmount(lot.balance.toString())
     setShowPaymentModal(true)
   }
 
@@ -108,25 +95,17 @@ export const CoffeePayments = () => {
     try {
       setProcessing(true)
 
-      const { error: paymentError } = await supabase
-        .from('finance_payments')
-        .insert({
-          supplier_id: selectedLot.supplier_id,
-          amount: amount,
-          payment_method: paymentMethod,
-          reference_number: referenceNumber || null,
-          notes: notes || null,
-          payment_type: 'Coffee Purchase',
-          status: 'Completed',
-          payment_date: new Date().toISOString()
-        })
-
-      if (paymentError) throw paymentError
+      const newAmountPaid = Number(selectedLot.amount_paid || 0) + amount
+      const newBalance = Number(selectedLot.amount) - newAmountPaid
+      const newStatus = newBalance <= 0 ? 'Paid' : 'Partial'
 
       const { error: updateError } = await supabase
-        .from('finance_coffee_lots')
+        .from('payment_records')
         .update({
-          finance_status: amount >= selectedLot.net_amount ? 'paid' : 'partially_paid',
+          amount_paid: newAmountPaid,
+          balance: newBalance,
+          status: newStatus,
+          method: paymentMethod,
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedLot.id)
@@ -134,14 +113,12 @@ export const CoffeePayments = () => {
       if (updateError) throw updateError
 
       const { error: transactionError } = await supabase
-        .from('finance_cash_transactions')
+        .from('finance_transactions')
         .insert({
-          transaction_type: 'Payment',
-          amount: -amount,
-          description: `Coffee payment to ${selectedLot.supplier_name} - ${selectedLot.batch_number || 'N/A'}`,
-          payment_method: paymentMethod,
-          reference_number: referenceNumber || null,
-          transaction_date: new Date().toISOString()
+          type: 'Coffee Payment',
+          description: `Coffee payment to ${selectedLot.supplier} - ${selectedLot.batch_number || 'N/A'}`,
+          amount: amount,
+          date: new Date().toISOString().split('T')[0]
         })
 
       if (transactionError) throw transactionError
@@ -168,14 +145,13 @@ export const CoffeePayments = () => {
 
   const handleExport = () => {
     const exportData = filteredLots.map(lot => ({
-      Supplier: lot.supplier_name,
+      Supplier: lot.supplier,
       'Batch Number': lot.batch_number || 'N/A',
-      'Kilograms': lot.kilograms,
-      'Price/Kg': lot.price_per_kg,
       'Total Amount': lot.amount,
-      'Advance': lot.advance_amount || 0,
-      'Net Amount': lot.net_amount,
-      'Status': lot.finance_status,
+      'Amount Paid': lot.amount_paid || 0,
+      'Balance': lot.balance,
+      'Status': lot.status,
+      'Method': lot.method,
       'Date': formatDate(lot.date)
     }))
     exportToCSV(exportData, `coffee-payments-${statusFilter}-${new Date().toISOString().split('T')[0]}`)
@@ -231,9 +207,9 @@ export const CoffeePayments = () => {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             >
               <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="partially_paid">Partially Paid</option>
-              <option value="paid">Paid</option>
+              <option value="Pending">Pending</option>
+              <option value="Partial">Partially Paid</option>
+              <option value="Paid">Paid</option>
             </select>
           </div>
         </div>
@@ -244,11 +220,10 @@ export const CoffeePayments = () => {
               <tr className="border-b border-gray-200">
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Supplier</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Batch</th>
-                <th className="text-right py-3 px-4 font-semibold text-gray-700">Kilograms</th>
-                <th className="text-right py-3 px-4 font-semibold text-gray-700">Price/Kg</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Amount</th>
-                <th className="text-right py-3 px-4 font-semibold text-gray-700">Advance</th>
-                <th className="text-right py-3 px-4 font-semibold text-gray-700">Net Amount</th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">Paid</th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">Balance</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Method</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
                 <th className="text-center py-3 px-4 font-semibold text-gray-700">Actions</th>
@@ -257,35 +232,34 @@ export const CoffeePayments = () => {
             <tbody>
               {filteredLots.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-8 text-gray-500">
-                    No coffee lots found
+                  <td colSpan={9} className="text-center py-8 text-gray-500">
+                    No payment records found
                   </td>
                 </tr>
               ) : (
                 filteredLots.map((lot) => (
                   <tr key={lot.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">{lot.supplier_name}</td>
+                    <td className="py-3 px-4">{lot.supplier}</td>
                     <td className="py-3 px-4">{lot.batch_number || 'N/A'}</td>
-                    <td className="py-3 px-4 text-right">{lot.kilograms.toFixed(2)}</td>
-                    <td className="py-3 px-4 text-right">{formatCurrency(lot.price_per_kg)}</td>
                     <td className="py-3 px-4 text-right font-semibold">{formatCurrency(lot.amount)}</td>
-                    <td className="py-3 px-4 text-right">{formatCurrency(lot.advance_amount || 0)}</td>
-                    <td className="py-3 px-4 text-right font-bold text-emerald-700">{formatCurrency(lot.net_amount)}</td>
+                    <td className="py-3 px-4 text-right">{formatCurrency(lot.amount_paid || 0)}</td>
+                    <td className="py-3 px-4 text-right font-bold text-emerald-700">{formatCurrency(lot.balance)}</td>
+                    <td className="py-3 px-4">{lot.method || 'N/A'}</td>
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        lot.finance_status === 'paid'
+                        lot.status === 'Paid'
                           ? 'bg-green-100 text-green-800'
-                          : lot.finance_status === 'partially_paid'
+                          : lot.status === 'Partial'
                           ? 'bg-orange-100 text-orange-800'
                           : 'bg-yellow-100 text-yellow-800'
                       }`}>
-                        {lot.finance_status === 'paid' ? <CheckCircle className="w-3 h-3 mr-1" /> : <Clock className="w-3 h-3 mr-1" />}
-                        {lot.finance_status}
+                        {lot.status === 'Paid' ? <CheckCircle className="w-3 h-3 mr-1" /> : <Clock className="w-3 h-3 mr-1" />}
+                        {lot.status}
                       </span>
                     </td>
                     <td className="py-3 px-4">{formatDate(lot.date)}</td>
                     <td className="py-3 px-4 text-center">
-                      {lot.finance_status === 'pending' && (
+                      {lot.status === 'Pending' && (
                         <PermissionGate roles={['Super Admin', 'Manager', 'Administrator', 'Supervisor']}>
                           <button
                             onClick={() => handleProcessPayment(lot)}
@@ -309,31 +283,23 @@ export const CoffeePayments = () => {
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
             <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-4 rounded-t-2xl">
               <h3 className="text-xl font-semibold text-white">Process Coffee Payment</h3>
-              <p className="text-emerald-100 text-sm mt-1">{selectedLot.supplier_name}</p>
+              <p className="text-emerald-100 text-sm mt-1">{selectedLot.supplier}</p>
             </div>
 
             <div className="p-6 space-y-4">
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-gray-600">Kilograms</p>
-                    <p className="font-semibold">{selectedLot.kilograms.toFixed(2)} kg</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">Price/Kg</p>
-                    <p className="font-semibold">{formatCurrency(selectedLot.price_per_kg)}</p>
-                  </div>
-                  <div>
                     <p className="text-gray-600">Total Amount</p>
                     <p className="font-semibold">{formatCurrency(selectedLot.amount)}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Advance</p>
-                    <p className="font-semibold text-orange-600">{formatCurrency(selectedLot.advance_amount || 0)}</p>
+                    <p className="text-gray-600">Already Paid</p>
+                    <p className="font-semibold text-blue-600">{formatCurrency(selectedLot.amount_paid || 0)}</p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-gray-600">Net Amount Payable</p>
-                    <p className="text-2xl font-bold text-emerald-700">{formatCurrency(selectedLot.net_amount)}</p>
+                    <p className="text-gray-600">Balance Payable</p>
+                    <p className="text-2xl font-bold text-emerald-700">{formatCurrency(selectedLot.balance)}</p>
                   </div>
                 </div>
               </div>
