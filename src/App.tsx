@@ -328,42 +328,85 @@ const Dashboard = () => {
       setLoading(true)
       setError(null)
       
-      // Fetch pending coffee payments from finance_coffee_lots
+      // First, let's try a simple query to test connection
       const { data, error } = await supabase
         .from('finance_coffee_lots')
-        .select(`
-          id,
-          unit_price_ugx,
-          quantity_kg,
-          total_amount_ugx,
-          finance_status,
-          assessed_at,
-          suppliers (
-            name,
-            code
-          )
-        `)
-        .eq('finance_status', 'READY_FOR_FINANCE')
-        .order('assessed_at', { ascending: false })
-        .limit(10)
+        .select('*')
+        .limit(5)
 
       if (error) {
-        console.error('Error fetching pending payments:', error)
-        setError(error.message)
+        console.error('Supabase error:', error)
+        setError(`Database error: ${error.message}`)
         return
       }
 
+      console.log('Raw data from finance_coffee_lots:', data)
       setPendingPayments(data || [])
     } catch (err) {
-      console.error('Error:', err)
-      setError('Failed to fetch pending payments')
+      console.error('Network error:', err)
+      setError(`Network error: ${err.message || 'Failed to connect to database'}`)
     } finally {
       setLoading(false)
     }
   }
 
+  // Add connection test component
+  const ConnectionTest = () => {
+    const [connectionStatus, setConnectionStatus] = useState('testing')
+    
+    useEffect(() => {
+      testConnection()
+    }, [])
+    
+    const testConnection = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('finance_coffee_lots')
+          .select('count')
+          .limit(1)
+        
+        if (error) {
+          console.error('Connection test failed:', error)
+          setConnectionStatus('failed')
+        } else {
+          console.log('Connection test successful:', data)
+          setConnectionStatus('success')
+        }
+      } catch (err) {
+        console.error('Connection test error:', err)
+        setConnectionStatus('failed')
+      }
+    }
+    
+    return (
+      <div className="mb-4 p-4 rounded-lg border">
+        <div className="flex items-center space-x-2">
+          <div className={`w-3 h-3 rounded-full ${
+            connectionStatus === 'testing' ? 'bg-yellow-500 animate-pulse' :
+            connectionStatus === 'success' ? 'bg-green-500' : 'bg-red-500'
+          }`}></div>
+          <span className="text-sm font-medium">
+            Database Connection: {
+              connectionStatus === 'testing' ? 'Testing...' :
+              connectionStatus === 'success' ? 'Connected' : 'Failed'
+            }
+          </span>
+          {connectionStatus === 'failed' && (
+            <button 
+              onClick={testConnection}
+              className="text-blue-600 hover:text-blue-700 text-sm"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-8">
+      <ConnectionTest />
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {dashboardMetrics.map((metric, index) => (
@@ -447,28 +490,28 @@ const Dashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">
-                            {payment.suppliers?.name || 'Unknown Supplier'}
+                            {payment.supplier_id || 'Unknown Supplier'}
                           </div>
                           <div className="text-sm text-gray-500">
-                            Code: {payment.suppliers?.code || 'N/A'}
+                            ID: {payment.supplier_id?.slice(0, 8) || 'N/A'}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {Number(payment.quantity_kg).toLocaleString()} kg
+                          {Number(payment.quantity_kg || 0).toLocaleString()} kg
                         </div>
                         <div className="text-sm text-gray-500">
-                          @ {formatCurrency(payment.unit_price_ugx)}/kg
+                          @ {formatCurrency(payment.unit_price_ugx || 0)}/kg
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {formatCurrency(payment.total_amount_ugx)}
+                          {formatCurrency(payment.total_amount_ugx || 0)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <StatusBadge status="Pending" />
+                        <StatusBadge status={payment.finance_status || 'Pending'} />
                       </td>
                     </tr>
                   ))}
@@ -545,34 +588,23 @@ const Payments = () => {
       setLoading(true)
       setError(null)
       
-      // Fetch all coffee payments from finance_coffee_lots
+      // Simple query first to test connection
       const { data, error } = await supabase
         .from('finance_coffee_lots')
-        .select(`
-          id,
-          unit_price_ugx,
-          quantity_kg,
-          total_amount_ugx,
-          finance_status,
-          assessed_at,
-          suppliers (
-            name,
-            code
-          )
-        `)
-        .order('assessed_at', { ascending: false })
-        .limit(50)
+        .select('*')
+        .limit(10)
 
       if (error) {
-        console.error('Error fetching payments:', error)
-        setError(error.message)
+        console.error('Supabase error:', error)
+        setError(`Database error: ${error.message}`)
         return
       }
 
+      console.log('Payments data:', data)
       setPayments(data || [])
     } catch (err) {
-      console.error('Error:', err)
-      setError('Failed to fetch payments')
+      console.error('Network error:', err)
+      setError(`Network error: ${err.message || 'Failed to connect to database'}`)
     } finally {
       setLoading(false)
     }
@@ -699,44 +731,42 @@ const Payments = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {payment.suppliers?.name || 'Unknown Supplier'}
+                          {payment.supplier_id || 'Unknown Supplier'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {payment.suppliers?.code || 'N/A'}
+                          ID: {payment.supplier_id?.slice(0, 8) || 'N/A'}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {Number(payment.quantity_kg).toLocaleString()} kg
+                        {Number(payment.quantity_kg || 0).toLocaleString()} kg
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {formatCurrency(payment.unit_price_ugx)}
+                        {formatCurrency(payment.unit_price_ugx || 0)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {formatCurrency(payment.total_amount_ugx)}
+                        {formatCurrency(payment.total_amount_ugx || 0)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-600">
-                        {formatDate(payment.assessed_at)}
+                        {formatDate(payment.assessed_at || payment.created_at)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <StatusBadge 
-                        status={payment.finance_status === 'READY_FOR_FINANCE' ? 'Pending' : 
-                               payment.finance_status === 'APPROVED_FOR_PAYMENT' ? 'Approved' : 
-                               payment.finance_status === 'PAID' ? 'Paid' : payment.finance_status} 
+                        status={payment.finance_status || 'Pending'} 
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
                         <button className="text-emerald-600 hover:text-emerald-900">View</button>
-                        {payment.finance_status === 'READY_FOR_FINANCE' && (
+                        {(payment.finance_status === 'READY_FOR_FINANCE' || !payment.finance_status) && (
                           <button className="text-blue-600 hover:text-blue-900">Approve</button>
                         )}
                         <button className="text-red-600 hover:text-red-900">Reject</button>
