@@ -598,6 +598,10 @@ const Payments = () => {
   const [error, setError] = useState<string | null>(null)
   const [selectedPayment, setSelectedPayment] = useState<any | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [showApprovalModal, setShowApprovalModal] = useState(false)
+  const [amountPaid, setAmountPaid] = useState('')
+  const [balance, setBalance] = useState('')
+  const [processing, setProcessing] = useState(false)
 
   const handleViewPayment = (payment: any) => {
     setSelectedPayment(payment)
@@ -607,6 +611,69 @@ const Payments = () => {
   const handleCloseModal = () => {
     setShowModal(false)
     setSelectedPayment(null)
+  }
+
+  const handleApprovePayment = (payment: any) => {
+    setSelectedPayment(payment)
+    setAmountPaid('')
+    setBalance('')
+    setShowApprovalModal(true)
+    setShowModal(false)
+  }
+
+  const handleCloseApprovalModal = () => {
+    setShowApprovalModal(false)
+    setSelectedPayment(null)
+    setAmountPaid('')
+    setBalance('')
+  }
+
+  const handleProcessPayment = async (status: 'Paid' | 'Partially Paid') => {
+    if (!selectedPayment) return
+
+    const paidAmount = parseFloat(amountPaid)
+    const balanceAmount = parseFloat(balance)
+
+    if (isNaN(paidAmount) || paidAmount <= 0) {
+      alert('Please enter a valid amount paid')
+      return
+    }
+
+    if (isNaN(balanceAmount) || balanceAmount < 0) {
+      alert('Please enter a valid balance amount')
+      return
+    }
+
+    const totalAmount = Number(selectedPayment.amount)
+    if (paidAmount + balanceAmount !== totalAmount) {
+      alert(`Amount paid (${paidAmount}) + Balance (${balanceAmount}) must equal total amount (${totalAmount})`)
+      return
+    }
+
+    try {
+      setProcessing(true)
+
+      const { error } = await supabase
+        .from('payment_records')
+        .update({
+          status: status,
+          amount_paid: paidAmount,
+          balance: balanceAmount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedPayment.id)
+
+      if (error) throw error
+
+      alert(`Payment marked as ${status}`)
+      handleCloseApprovalModal()
+      fetchPayments()
+    } catch (err: any) {
+      console.error('Error processing payment:', err)
+      alert(`Failed to process payment: ${err.message}`)
+    } finally {
+      setProcessing(false)
+    }
   }
 
   useEffect(() => {
@@ -798,7 +865,12 @@ const Payments = () => {
                           View
                         </button>
                         {payment.status === 'Pending' && (
-                          <button className="text-blue-600 hover:text-blue-900 transition-colors">Approve</button>
+                          <button
+                            onClick={() => handleApprovePayment(payment)}
+                            className="text-blue-600 hover:text-blue-900 transition-colors"
+                          >
+                            Approve
+                          </button>
                         )}
                         <button className="text-red-600 hover:text-red-900 transition-colors">Reject</button>
                       </div>
@@ -893,7 +965,10 @@ const Payments = () => {
               </button>
               {selectedPayment.status === 'Pending' && (
                 <>
-                  <button className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">
+                  <button
+                    onClick={() => handleApprovePayment(selectedPayment)}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
                     Approve Payment
                   </button>
                   <button className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">
@@ -901,6 +976,110 @@ const Payments = () => {
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showApprovalModal && selectedPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-white">Process Payment</h3>
+              <p className="text-blue-100 text-sm mt-1">Enter payment details for {selectedPayment.supplier}</p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-600">Total Amount Due</span>
+                  <span className="text-2xl font-bold text-gray-900">{formatCurrency(Number(selectedPayment.amount))}</span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  Supplier: {selectedPayment.supplier} | Batch: {selectedPayment.batch_number || 'N/A'}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Amount Paid <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={amountPaid}
+                      onChange={(e) => {
+                        const paid = e.target.value
+                        setAmountPaid(paid)
+                        if (paid && !isNaN(parseFloat(paid))) {
+                          const remaining = Number(selectedPayment.amount) - parseFloat(paid)
+                          setBalance(remaining >= 0 ? remaining.toFixed(2) : '0')
+                        }
+                      }}
+                      className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Balance <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={balance}
+                      onChange={(e) => setBalance(e.target.value)}
+                      className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                {amountPaid && balance && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-blue-700 font-medium">Total Verification</span>
+                      <span className="text-blue-900 font-semibold">
+                        {formatCurrency(parseFloat(amountPaid || '0') + parseFloat(balance || '0'))}
+                      </span>
+                    </div>
+                    {(parseFloat(amountPaid || '0') + parseFloat(balance || '0')) !== Number(selectedPayment.amount) && (
+                      <p className="text-red-600 text-xs mt-1">Amount paid + Balance must equal total amount</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3 border-t border-gray-200 rounded-b-2xl">
+              <button
+                onClick={handleCloseApprovalModal}
+                disabled={processing}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleProcessPayment('Partially Paid')}
+                disabled={processing || !amountPaid || !balance || parseFloat(balance) <= 0}
+                className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {processing ? 'Processing...' : 'Mark as Partially Paid'}
+              </button>
+              <button
+                onClick={() => handleProcessPayment('Paid')}
+                disabled={processing || !amountPaid || !balance || parseFloat(balance) !== 0}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {processing ? 'Processing...' : 'Mark as Paid'}
+              </button>
             </div>
           </div>
         </div>
