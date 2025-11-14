@@ -1,5 +1,5 @@
-import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore'
 import { db } from './firebase'
+import firebase from 'firebase/compat/app'
 
 export interface FirestoreAdvance {
   id: string
@@ -32,9 +32,9 @@ export interface FirestoreCoffeeLot {
 
 export const fetchSupplierAdvances = async (): Promise<FirestoreAdvance[]> => {
   try {
-    const advancesRef = collection(db, 'supplier_advances')
-    const q = query(advancesRef, orderBy('created_at', 'desc'))
-    const snapshot = await getDocs(q)
+    const snapshot = await db.collection('supplier_advances')
+      .orderBy('created_at', 'desc')
+      .get()
 
     return snapshot.docs.map(doc => {
       const data = doc.data()
@@ -45,11 +45,11 @@ export const fetchSupplierAdvances = async (): Promise<FirestoreAdvance[]> => {
         amount: Number(data.amount || 0),
         recovered: Number(data.recovered || 0),
         balance: Number(data.balance || 0),
-        date: data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date),
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
         status: data.status || 'active',
         notes: data.notes,
-        created_at: data.created_at instanceof Timestamp ? data.created_at.toDate() : new Date(data.created_at),
-        updated_at: data.updated_at instanceof Timestamp ? data.updated_at.toDate() : new Date(data.updated_at)
+        created_at: data.created_at?.toDate ? data.created_at.toDate() : new Date(data.created_at),
+        updated_at: data.updated_at?.toDate ? data.updated_at.toDate() : new Date(data.updated_at)
       }
     })
   } catch (error) {
@@ -60,23 +60,18 @@ export const fetchSupplierAdvances = async (): Promise<FirestoreAdvance[]> => {
 
 export const fetchPendingSupplierAdvances = async (supplierId?: string): Promise<FirestoreAdvance[]> => {
   try {
-    const advancesRef = collection(db, 'supplier_advances')
-    let q = query(
-      advancesRef,
-      where('status', '==', 'active'),
-      orderBy('created_at', 'desc')
-    )
+    let query = db.collection('supplier_advances')
+      .where('status', '==', 'active')
+      .orderBy('created_at', 'desc')
 
     if (supplierId) {
-      q = query(
-        advancesRef,
-        where('supplier_id', '==', supplierId),
-        where('status', '==', 'active'),
-        orderBy('created_at', 'desc')
-      )
+      query = db.collection('supplier_advances')
+        .where('supplier_id', '==', supplierId)
+        .where('status', '==', 'active')
+        .orderBy('created_at', 'desc')
     }
 
-    const snapshot = await getDocs(q)
+    const snapshot = await query.get()
 
     return snapshot.docs.map(doc => {
       const data = doc.data()
@@ -87,11 +82,11 @@ export const fetchPendingSupplierAdvances = async (supplierId?: string): Promise
         amount: Number(data.amount || 0),
         recovered: Number(data.recovered || 0),
         balance: Number(data.balance || 0),
-        date: data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date),
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
         status: data.status || 'active',
         notes: data.notes,
-        created_at: data.created_at instanceof Timestamp ? data.created_at.toDate() : new Date(data.created_at),
-        updated_at: data.updated_at instanceof Timestamp ? data.updated_at.toDate() : new Date(data.updated_at)
+        created_at: data.created_at?.toDate ? data.created_at.toDate() : new Date(data.created_at),
+        updated_at: data.updated_at?.toDate ? data.updated_at.toDate() : new Date(data.updated_at)
       }
     }).filter(advance => advance.balance > 0)
   } catch (error) {
@@ -102,18 +97,16 @@ export const fetchPendingSupplierAdvances = async (supplierId?: string): Promise
 
 export const fetchCoffeeLots = async (paymentStatus?: string): Promise<FirestoreCoffeeLot[]> => {
   try {
-    const lotsRef = collection(db, 'coffee_lots')
-    let q = query(lotsRef, orderBy('created_at', 'desc'))
+    let query = db.collection('coffee_lots')
+      .orderBy('created_at', 'desc')
 
     if (paymentStatus) {
-      q = query(
-        lotsRef,
-        where('payment_status', '==', paymentStatus),
-        orderBy('created_at', 'desc')
-      )
+      query = db.collection('coffee_lots')
+        .where('payment_status', '==', paymentStatus)
+        .orderBy('created_at', 'desc')
     }
 
-    const snapshot = await getDocs(q)
+    const snapshot = await query.get()
 
     return snapshot.docs.map(doc => {
       const data = doc.data()
@@ -128,8 +121,8 @@ export const fetchCoffeeLots = async (paymentStatus?: string): Promise<Firestore
         advance_deduction: Number(data.advance_deduction || 0),
         net_amount: Number(data.net_amount || 0),
         payment_status: data.payment_status || 'pending',
-        date: data.date instanceof Timestamp ? data.date.toDate() : new Date(data.date),
-        created_at: data.created_at instanceof Timestamp ? data.created_at.toDate() : new Date(data.created_at)
+        date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+        created_at: data.created_at?.toDate ? data.created_at.toDate() : new Date(data.created_at)
       }
     })
   } catch (error) {
