@@ -354,7 +354,7 @@ const Dashboard = () => {
   const ConnectionTest = () => {
     const [connectionStatus, setConnectionStatus] = useState('testing')
     
-    useEffect(() => {
+    React.useEffect(() => {
       testConnection()
     }, [])
     
@@ -362,7 +362,7 @@ const Dashboard = () => {
       try {
         const { data, error } = await supabase
           .from('finance_coffee_lots')
-          .select('count')
+          .select('id')
           .limit(1)
         
         if (error) {
@@ -374,6 +374,13 @@ const Dashboard = () => {
         }
       } catch (err) {
         console.error('Connection test error:', err)
+        if (err.message && err.message.includes('Missing Supabase')) {
+          setConnectionStatus('config-error')
+          return
+        }
+        if (err.message && err.message.includes('Failed to fetch')) {
+          setConnectionStatus('network-error')
+        }
         setConnectionStatus('failed')
       }
     }
@@ -383,14 +390,23 @@ const Dashboard = () => {
         <div className="flex items-center space-x-2">
           <div className={`w-3 h-3 rounded-full ${
             connectionStatus === 'testing' ? 'bg-yellow-500 animate-pulse' :
-            connectionStatus === 'success' ? 'bg-green-500' : 'bg-red-500'
+            connectionStatus === 'success' ? 'bg-green-500' : 
+            connectionStatus === 'config-error' ? 'bg-orange-500' :
+            connectionStatus === 'network-error' ? 'bg-red-500' : 'bg-red-500'
           }`}></div>
           <span className="text-sm font-medium">
             Database Connection: {
               connectionStatus === 'testing' ? 'Testing...' :
-              connectionStatus === 'success' ? 'Connected' : 'Failed'
+              connectionStatus === 'success' ? 'Connected' : 
+              connectionStatus === 'config-error' ? 'Configuration Error' :
+              connectionStatus === 'network-error' ? 'Network Error' : 'Failed'
             }
           </span>
+          {connectionStatus === 'config-error' && (
+            <span className="text-xs text-orange-600">
+              Please check your .env file
+            </span>
+          )}
           {connectionStatus === 'failed' && (
             <button 
               onClick={testConnection}
