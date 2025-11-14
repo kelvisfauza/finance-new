@@ -327,12 +327,14 @@ const Dashboard = () => {
     try {
       setLoading(true)
       setError(null)
-      
-      // First, let's try a simple query to test connection
+
+      // Query payment_records with pending status
       const { data, error } = await supabase
-        .from('finance_coffee_lots')
+        .from('payment_records')
         .select('*')
-        .limit(5)
+        .eq('status', 'Pending')
+        .order('created_at', { ascending: false })
+        .limit(10)
 
       if (error) {
         console.error('Supabase error:', error)
@@ -340,7 +342,7 @@ const Dashboard = () => {
         return
       }
 
-      console.log('Raw data from finance_coffee_lots:', data)
+      console.log('Pending payments:', data)
       setPendingPayments(data || [])
     } catch (err: any) {
       console.error('Network error:', err)
@@ -361,7 +363,7 @@ const Dashboard = () => {
     const testConnection = async () => {
       try {
         const { data, error } = await supabase
-          .from('finance_coffee_lots')
+          .from('payment_records')
           .select('id')
           .limit(1)
         
@@ -490,7 +492,7 @@ const Dashboard = () => {
                       Supplier
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Quantity (KG)
+                      Payment Method
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Amount
@@ -506,28 +508,28 @@ const Dashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">
-                            {payment.supplier_id || 'Unknown Supplier'}
+                            {payment.supplier || 'Unknown Supplier'}
                           </div>
                           <div className="text-sm text-gray-500">
-                            ID: {payment.supplier_id?.slice(0, 8) || 'N/A'}
+                            Batch: {payment.batch_number || 'N/A'}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {Number(payment.quantity_kg || 0).toLocaleString()} kg
+                          {payment.method || 'N/A'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          @ {formatCurrency(payment.unit_price_ugx || 0)}/kg
+                          {formatDate(payment.date)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
-                          {formatCurrency(payment.total_amount_ugx || 0)}
+                          {formatCurrency(Number(payment.amount) || 0)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <StatusBadge status={payment.finance_status || 'Pending'} />
+                        <StatusBadge status={payment.status || 'Pending'} />
                       </td>
                     </tr>
                   ))}
@@ -604,11 +606,12 @@ const Payments = () => {
       setLoading(true)
       setError(null)
       
-      // Simple query first to test connection
+      // Query all payment records
       const { data, error } = await supabase
-        .from('finance_coffee_lots')
+        .from('payment_records')
         .select('*')
-        .limit(10)
+        .order('created_at', { ascending: false })
+        .limit(20)
 
       if (error) {
         console.error('Supabase error:', error)
@@ -741,48 +744,48 @@ const Payments = () => {
                   <tr key={payment.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm font-mono text-gray-900">
-                        {payment.id.slice(0, 8)}...
+                        {String(payment.id).slice(0, 8)}...
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {payment.supplier_id || 'Unknown Supplier'}
+                          {payment.supplier || 'Unknown Supplier'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          ID: {payment.supplier_id?.slice(0, 8) || 'N/A'}
+                          Batch: {payment.batch_number || 'N/A'}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {Number(payment.quantity_kg || 0).toLocaleString()} kg
+                        {payment.method || 'N/A'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {formatCurrency(payment.unit_price_ugx || 0)}
+                        N/A
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {formatCurrency(payment.total_amount_ugx || 0)}
+                        {formatCurrency(Number(payment.amount) || 0)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-600">
-                        {formatDate(payment.assessed_at || payment.created_at)}
+                        {formatDate(payment.date)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <StatusBadge 
-                        status={payment.finance_status || 'Pending'} 
+                      <StatusBadge
+                        status={payment.status || 'Pending'}
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
                         <button className="text-emerald-600 hover:text-emerald-900">View</button>
-                        {(payment.finance_status === 'READY_FOR_FINANCE' || !payment.finance_status) && (
+                        {payment.status === 'Pending' && (
                           <button className="text-blue-600 hover:text-blue-900">Approve</button>
                         )}
                         <button className="text-red-600 hover:text-red-900">Reject</button>
