@@ -6,13 +6,20 @@ import { PermissionGate } from '../components/PermissionGate'
 
 interface Expense {
   id: string
-  description: string
+  type: string
+  title: string
+  description?: string
   amount: number
-  date: string
-  category: string
+  date?: string
+  daterequested: string
+  category?: string
   status: string
+  priority: string
+  department: string
+  requestedby: string
   created_at: string
-  updated_at: string
+  updated_at?: string
+  details?: any
 }
 
 export const Expenses = () => {
@@ -37,8 +44,9 @@ export const Expenses = () => {
     try {
       setLoading(true)
       const { data, error } = await supabase
-        .from('finance_expenses')
+        .from('approval_requests')
         .select('*')
+        .in('type', ['Expense Request', 'Requisition', 'Company Expense', 'Field Financing Request'])
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -61,8 +69,11 @@ export const Expenses = () => {
 
     if (searchTerm) {
       filtered = filtered.filter(expense =>
+        expense.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expense.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expense.category?.toLowerCase().includes(searchTerm.toLowerCase())
+        expense.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        expense.department?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        expense.requestedby?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
 
@@ -75,13 +86,13 @@ export const Expenses = () => {
   }
 
   const handleReject = async (expense: Expense) => {
-    if (!confirm(`Are you sure you want to reject this expense: ${expense.description}?`)) return
+    if (!confirm(`Are you sure you want to reject this expense: ${expense.title}?`)) return
 
     try {
       setProcessing(true)
 
       const { error } = await supabase
-        .from('finance_expenses')
+        .from('approval_requests')
         .update({
           status: 'Rejected',
           updated_at: new Date().toISOString()
@@ -107,7 +118,7 @@ export const Expenses = () => {
       setProcessing(true)
 
       const { error: updateError } = await supabase
-        .from('finance_expenses')
+        .from('approval_requests')
         .update({
           status: 'Approved',
           updated_at: new Date().toISOString()
@@ -120,7 +131,7 @@ export const Expenses = () => {
         .from('finance_transactions')
         .insert({
           type: 'Expense',
-          description: selectedExpense.description,
+          description: selectedExpense.title,
           amount: selectedExpense.amount,
           date: new Date().toISOString().split('T')[0]
         })
@@ -141,11 +152,14 @@ export const Expenses = () => {
 
   const handleExport = () => {
     const exportData = filteredExpenses.map(expense => ({
-      Description: expense.description,
-      Category: expense.category,
+      Type: expense.type,
+      Title: expense.title,
       Amount: expense.amount,
       Status: expense.status,
-      Date: formatDate(expense.date)
+      Priority: expense.priority,
+      Department: expense.department,
+      RequestedBy: expense.requestedby,
+      DateRequested: expense.daterequested
     }))
     exportToCSV(exportData, `expenses-${statusFilter}-${new Date().toISOString().split('T')[0]}`)
   }
@@ -211,8 +225,10 @@ export const Expenses = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Description</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Category</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Title</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Department</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Requested By</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Amount</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
@@ -222,15 +238,19 @@ export const Expenses = () => {
             <tbody>
               {filteredExpenses.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-gray-500">
+                  <td colSpan={8} className="text-center py-8 text-gray-500">
                     No expenses found
                   </td>
                 </tr>
               ) : (
                 filteredExpenses.map((expense) => (
                   <tr key={expense.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">{expense.description}</td>
-                    <td className="py-3 px-4">{expense.category}</td>
+                    <td className="py-3 px-4">
+                      <span className="text-xs font-medium text-gray-600">{expense.type}</span>
+                    </td>
+                    <td className="py-3 px-4">{expense.title}</td>
+                    <td className="py-3 px-4">{expense.department}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{expense.requestedby}</td>
                     <td className="py-3 px-4 text-right font-semibold">{formatCurrency(expense.amount)}</td>
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -250,7 +270,7 @@ export const Expenses = () => {
                         {expense.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4">{formatDate(expense.date)}</td>
+                    <td className="py-3 px-4 text-sm">{expense.daterequested}</td>
                     <td className="py-3 px-4 text-center">
                       {expense.status === 'Pending' && (
                         <PermissionGate roles={['Super Admin', 'Manager', 'Administrator']}>
@@ -292,12 +312,20 @@ export const Expenses = () => {
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div className="space-y-2 text-sm">
                   <div>
-                    <p className="text-gray-600">Description</p>
-                    <p className="font-semibold">{selectedExpense.description}</p>
+                    <p className="text-gray-600">Type</p>
+                    <p className="font-semibold">{selectedExpense.type}</p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Category</p>
-                    <p className="font-semibold">{selectedExpense.category}</p>
+                    <p className="text-gray-600">Title</p>
+                    <p className="font-semibold">{selectedExpense.title}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Department</p>
+                    <p className="font-semibold">{selectedExpense.department}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Requested By</p>
+                    <p className="font-semibold">{selectedExpense.requestedby}</p>
                   </div>
                   <div>
                     <p className="text-gray-600">Amount</p>
