@@ -1,17 +1,22 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { fetchSupplierAdvances, FirestoreAdvance } from '../lib/firestoreQueries'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { HandCoins, Download, Search, CheckCircle, Clock } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 
 interface Advance {
   id: string
+  supplier_name: string
   amount: number
+  recovered: number
+  balance: number
   reference: string
   notes: string
   status: string
   created_at: string
   cleared_at: string | null
+  source: 'supabase' | 'firestore'
 }
 
 export const SupplierAdvances = () => {
@@ -32,14 +37,51 @@ export const SupplierAdvances = () => {
   const fetchAdvances = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from('finance_advances')
-        .select('*')
-        .order('created_at', { ascending: false})
 
-      if (error) throw error
+      const [supabaseData, firestoreData] = await Promise.all([
+        supabase
+          .from('finance_advances')
+          .select('*')
+          .order('created_at', { ascending: false}),
+        fetchSupplierAdvances()
+      ])
 
-      setAdvances(data || [])
+      if (supabaseData.error) throw supabaseData.error
+
+      const supabaseAdvances: Advance[] = (supabaseData.data || []).map((item: any) => ({
+        id: item.id,
+        supplier_name: item.reference || 'Unknown',
+        amount: Number(item.amount || 0),
+        recovered: 0,
+        balance: Number(item.amount || 0),
+        reference: item.reference || '',
+        notes: item.notes || '',
+        status: item.status || 'Pending',
+        created_at: item.created_at,
+        cleared_at: item.cleared_at,
+        source: 'supabase' as const
+      }))
+
+      const firestoreAdvances: Advance[] = firestoreData.map((item: FirestoreAdvance) => ({
+        id: item.id,
+        supplier_name: item.supplier_name,
+        amount: item.amount,
+        recovered: item.recovered,
+        balance: item.balance,
+        reference: `FS-${item.supplier_id.slice(0, 8)}`,
+        notes: item.notes || '',
+        status: item.status === 'active' ? 'Pending' : 'Cleared',
+        created_at: item.created_at.toISOString(),
+        cleared_at: item.status === 'active' ? null : item.updated_at.toISOString(),
+        source: 'firestore' as const
+      }))
+
+      const combinedAdvances = [...supabaseAdvances, ...firestoreAdvances]
+      combinedAdvances.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+
+      setAdvances(combinedAdvances)
     } catch (error: any) {
       console.error('Error fetching advances:', error)
       alert('Failed to fetch advances')
@@ -57,6 +99,7 @@ export const SupplierAdvances = () => {
 
     if (searchTerm) {
       filtered = filtered.filter(advance =>
+        advance.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         advance.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         advance.notes?.toLowerCase().includes(searchTerm.toLowerCase())
       )
@@ -67,9 +110,13 @@ export const SupplierAdvances = () => {
 
   const handleExport = () => {
     const exportData = filteredAdvances.map(advance => ({
+      Supplier: advance.supplier_name,
       Reference: advance.reference,
-      Amount: advance.amount,
+      'Total Amount': advance.amount,
+      'Recovered': advance.recovered,
+      'Balance': advance.balance,
       Status: advance.status,
+      Source: advance.source,
       Notes: advance.notes || 'N/A',
       'Created Date': formatDate(advance.created_at),
       'Cleared Date': advance.cleared_at ? formatDate(advance.cleared_at) : 'Not cleared'
@@ -79,11 +126,14 @@ export const SupplierAdvances = () => {
 
   const totalPending = advances
     .filter(a => a.status === 'Pending')
-    .reduce((sum, a) => sum + Number(a.amount), 0)
+    .reduce((sum, a) => sum + Number(a.balance), 0)
 
   const totalCleared = advances
     .filter(a => a.status === 'Cleared')
     .reduce((sum, a) => sum + Number(a.amount), 0)
+
+  const totalRecovered = advances
+    .reduce((sum, a) => sum + Number(a.recovered), 0)
 
   if (loading) {
     return (
@@ -152,15 +202,15 @@ export const SupplierAdvances = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600 mb-1">Total Advances</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatCurrency(totalPending + totalCleared)}
+              <p className="text-sm font-medium text-gray-600 mb-1">Total Recovered</p>
+              <p className="text-2xl font-bold text-green-700">
+                {formatCurrency(totalRecovered)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                All time
+                From all advances
               </p>
             </div>
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-blue-100 text-blue-700">
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-green-100 text-green-700">
               <HandCoins className="w-6 h-6" />
             </div>
           </div>
@@ -198,26 +248,31 @@ export const SupplierAdvances = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Supplier</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Reference</th>
-                <th className="text-right py-3 px-4 font-semibold text-gray-700">Amount</th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">Total Amount</th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">Recovered</th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">Balance</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Notes</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Source</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Created</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Cleared</th>
               </tr>
             </thead>
             <tbody>
               {filteredAdvances.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-gray-500">
+                  <td colSpan={8} className="text-center py-8 text-gray-500">
                     No advances found
                   </td>
                 </tr>
               ) : (
                 filteredAdvances.map((advance) => (
                   <tr key={advance.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 font-medium">{advance.reference}</td>
-                    <td className="py-3 px-4 text-right font-semibold text-orange-700">{formatCurrency(advance.amount)}</td>
+                    <td className="py-3 px-4 font-medium">{advance.supplier_name}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{advance.reference}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-gray-900">{formatCurrency(advance.amount)}</td>
+                    <td className="py-3 px-4 text-right text-green-700">{formatCurrency(advance.recovered)}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-orange-700">{formatCurrency(advance.balance)}</td>
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         advance.status === 'Cleared'
@@ -232,13 +287,16 @@ export const SupplierAdvances = () => {
                         {advance.status}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{advance.notes || 'N/A'}</td>
-                    <td className="py-3 px-4 text-sm">{formatDate(advance.created_at)}</td>
-                    <td className="py-3 px-4 text-sm">
-                      {advance.cleared_at ? formatDate(advance.cleared_at) : (
-                        <span className="text-gray-400">Not cleared</span>
-                      )}
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        advance.source === 'firestore'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {advance.source === 'firestore' ? 'Firestore' : 'Supabase'}
+                      </span>
                     </td>
+                    <td className="py-3 px-4 text-sm">{formatDate(advance.created_at)}</td>
                   </tr>
                 ))
               )}
