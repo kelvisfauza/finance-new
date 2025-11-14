@@ -33,7 +33,7 @@ export const HRPayments = () => {
   const [filteredPayments, setFilteredPayments] = useState<SalaryPayment[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('pending')
+  const [statusFilter, setStatusFilter] = useState<string>('')
   const [processingId, setProcessingId] = useState<string | null>(null)
 
   const { sendApprovalResponseSMS } = useSMSNotifications()
