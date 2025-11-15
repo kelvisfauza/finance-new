@@ -56,11 +56,24 @@ export const Requisitions = () => {
   const fetchRequisitions = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+
+      let query = supabase
         .from('approval_requests')
         .select('*')
         .eq('type', 'Requisition')
-        .order('created_at', { ascending: false })
+
+      if (isFinanceRole && !isAdminRole) {
+        query = query
+          .eq('finance_approved', false)
+          .in('status', ['Pending Finance', 'Pending', 'Processing'])
+      } else if (isAdminRole && !isFinanceRole) {
+        query = query
+          .eq('finance_approved', true)
+          .eq('admin_approved', false)
+          .in('status', ['Pending Admin Approval', 'Finance Approved'])
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
 
       if (error) throw error
 
