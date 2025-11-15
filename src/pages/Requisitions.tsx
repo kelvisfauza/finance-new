@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { FileText, CheckCircle, Clock, XCircle, Download, Search } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 import { useAuth } from '../contexts/AuthContext'
+import { useEmployeesByEmail } from '../hooks/useEmployeesByEmail'
 
 interface Requisition {
   id: string
@@ -44,6 +45,18 @@ export const Requisitions = () => {
 
   const isFinanceRole = employee?.role?.toLowerCase().includes('finance')
   const isAdminRole = ['Super Admin', 'Administrator', 'Manager'].includes(employee?.role || '')
+
+  const allEmails = useMemo(() => {
+    const emails: string[] = []
+    requisitions.forEach(req => {
+      if (req.requestedby) emails.push(req.requestedby)
+      if (req.finance_approved_by) emails.push(req.finance_approved_by)
+      if (req.admin_approved_by) emails.push(req.admin_approved_by)
+    })
+    return emails
+  }, [requisitions])
+
+  const { getEmployee } = useEmployeesByEmail(allEmails)
 
   useEffect(() => {
     fetchRequisitions()
@@ -305,7 +318,19 @@ export const Requisitions = () => {
                   <tr key={requisition.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4 font-medium">{requisition.title}</td>
                     <td className="py-3 px-4">{requisition.department}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{requisition.requestedby}</td>
+                    <td className="py-3 px-4">
+                      {(() => {
+                        const requester = getEmployee(requisition.requestedby)
+                        return requester ? (
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{requester.name}</div>
+                            <div className="text-xs text-gray-500">{requester.position}</div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-600">{requisition.requestedby}</span>
+                        )
+                      })()}
+                    </td>
                     <td className="py-3 px-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         requisition.priority === 'Urgent'

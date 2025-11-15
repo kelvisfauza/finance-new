@@ -29,6 +29,7 @@ interface SalaryPayment {
   updated_at: string
   employee_name?: string
   employee_phone?: string
+  employee_position?: string
 }
 
 export const HRPayments = () => {
@@ -67,22 +68,23 @@ export const HRPayments = () => {
 
         const { data: employees, error: empError } = await supabase
           .from('employees')
-          .select('auth_user_id, name, phone')
+          .select('auth_user_id, name, phone, position')
           .in('auth_user_id', userIds)
 
         if (empError) {
           console.error('Error fetching employee names:', empError)
         }
 
-        type EmployeeInfo = { name: string; phone: string }
+        type EmployeeInfo = { name: string; phone: string; position: string }
         const employeeMap = new Map<string, EmployeeInfo>(
-          employees?.map((emp: any) => [emp.auth_user_id, { name: emp.name, phone: emp.phone }]) || []
+          employees?.map((emp: any) => [emp.auth_user_id, { name: emp.name, phone: emp.phone, position: emp.position }]) || []
         )
 
         const enrichedPayments = paymentsData.map((payment: any) => ({
           ...payment,
           employee_name: employeeMap.get(payment.user_id)?.name || payment.requested_by,
-          employee_phone: employeeMap.get(payment.user_id)?.phone
+          employee_phone: employeeMap.get(payment.user_id)?.phone,
+          employee_position: employeeMap.get(payment.user_id)?.position
         }))
 
         setPayments(enrichedPayments)
@@ -306,7 +308,18 @@ export const HRPayments = () => {
                       <td className="py-3 px-4 font-medium">{payment.request_type}</td>
                       <td className="py-3 px-4 text-right">{formatCurrency(Number(payment.amount))}</td>
                       <td className="py-3 px-4 text-sm">{payment.reason}</td>
-                      <td className="py-3 px-4 text-sm">{payment.employee_name || payment.requested_by}</td>
+                      <td className="py-3 px-4">
+                        {payment.employee_name ? (
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{payment.employee_name}</div>
+                            {payment.employee_position && (
+                              <div className="text-xs text-gray-500">{payment.employee_position}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-600">{payment.requested_by}</span>
+                        )}
+                      </td>
                       <td className="py-3 px-4">
                         <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
                           {payment.approval_stage?.replace('_', ' ')}

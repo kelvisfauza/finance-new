@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { Receipt, CheckCircle, Clock, XCircle, Download, Search } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 import { useAuth } from '../contexts/AuthContext'
+import { useEmployeesByEmail } from '../hooks/useEmployeesByEmail'
 
 interface Expense {
   id: string
@@ -43,6 +44,18 @@ export const Expenses = () => {
 
   const isFinanceRole = employee?.role?.toLowerCase().includes('finance')
   const isAdminRole = ['Super Admin', 'Administrator', 'Manager'].includes(employee?.role || '')
+
+  const allEmails = useMemo(() => {
+    const emails: string[] = []
+    expenses.forEach(exp => {
+      if (exp.requestedby) emails.push(exp.requestedby)
+      if (exp.finance_approved_by) emails.push(exp.finance_approved_by)
+      if (exp.admin_approved_by) emails.push(exp.admin_approved_by)
+    })
+    return emails
+  }, [expenses])
+
+  const { getEmployee } = useEmployeesByEmail(allEmails)
 
   useEffect(() => {
     fetchExpenses()
@@ -309,7 +322,19 @@ export const Expenses = () => {
                     </td>
                     <td className="py-3 px-4">{expense.title}</td>
                     <td className="py-3 px-4">{expense.department}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{expense.requestedby}</td>
+                    <td className="py-3 px-4">
+                      {(() => {
+                        const requester = getEmployee(expense.requestedby)
+                        return requester ? (
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{requester.name}</div>
+                            <div className="text-xs text-gray-500">{requester.position}</div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-600">{expense.requestedby}</span>
+                        )
+                      })()}
+                    </td>
                     <td className="py-3 px-4 text-right font-semibold">{formatCurrency(expense.amount)}</td>
                     <td className="py-3 px-4">
                       {(() => {
