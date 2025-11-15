@@ -36,6 +36,7 @@ export const Requisitions = () => {
   const [requisitions, setRequisitions] = useState<Requisition[]>([])
   const [filteredRequisitions, setFilteredRequisitions] = useState<Requisition[]>([])
   const [loading, setLoading] = useState(true)
+  const [initialLoad, setInitialLoad] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [selectedRequisition, setSelectedRequisition] = useState<Requisition | null>(null)
@@ -60,6 +61,12 @@ export const Requisitions = () => {
 
   useEffect(() => {
     fetchRequisitions()
+
+    const interval = setInterval(() => {
+      fetchRequisitions()
+    }, 1000)
+
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -68,7 +75,9 @@ export const Requisitions = () => {
 
   const fetchRequisitions = async () => {
     try {
-      setLoading(true)
+      if (initialLoad) {
+        setLoading(true)
+      }
 
       let query = supabase
         .from('approval_requests')
@@ -93,9 +102,14 @@ export const Requisitions = () => {
       setRequisitions(data || [])
     } catch (error: any) {
       console.error('Error fetching requisitions:', error)
-      alert('Failed to fetch requisitions')
+      if (initialLoad) {
+        alert('Failed to fetch requisitions')
+      }
     } finally {
-      setLoading(false)
+      if (initialLoad) {
+        setLoading(false)
+        setInitialLoad(false)
+      }
     }
   }
 

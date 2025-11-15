@@ -35,6 +35,7 @@ export const Expenses = () => {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
+  const [initialLoad, setInitialLoad] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
@@ -59,6 +60,12 @@ export const Expenses = () => {
 
   useEffect(() => {
     fetchExpenses()
+
+    const interval = setInterval(() => {
+      fetchExpenses()
+    }, 1000)
+
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -67,7 +74,9 @@ export const Expenses = () => {
 
   const fetchExpenses = async () => {
     try {
-      setLoading(true)
+      if (initialLoad) {
+        setLoading(true)
+      }
 
       let query = supabase
         .from('approval_requests')
@@ -92,9 +101,14 @@ export const Expenses = () => {
       setExpenses(data || [])
     } catch (error: any) {
       console.error('Error fetching expenses:', error)
-      alert('Failed to fetch expenses')
+      if (initialLoad) {
+        alert('Failed to fetch expenses')
+      }
     } finally {
-      setLoading(false)
+      if (initialLoad) {
+        setLoading(false)
+        setInitialLoad(false)
+      }
     }
   }
 

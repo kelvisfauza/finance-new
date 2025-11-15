@@ -36,6 +36,7 @@ export const HRPayments = () => {
   const [payments, setPayments] = useState<SalaryPayment[]>([])
   const [filteredPayments, setFilteredPayments] = useState<SalaryPayment[]>([])
   const [loading, setLoading] = useState(true)
+  const [initialLoad, setInitialLoad] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [processingId, setProcessingId] = useState<string | null>(null)
@@ -47,6 +48,12 @@ export const HRPayments = () => {
 
   useEffect(() => {
     fetchPayments()
+
+    const interval = setInterval(() => {
+      fetchPayments()
+    }, 1000)
+
+    return () => clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -55,7 +62,10 @@ export const HRPayments = () => {
 
   const fetchPayments = async () => {
     try {
-      setLoading(true)
+      if (initialLoad) {
+        setLoading(true)
+      }
+
       const { data: paymentsData, error: paymentsError } = await supabase
         .from('money_requests')
         .select('*')
@@ -93,9 +103,14 @@ export const HRPayments = () => {
       }
     } catch (error: any) {
       console.error('Error fetching salary payments:', error)
-      alert('Failed to fetch salary payments')
+      if (initialLoad) {
+        alert('Failed to fetch salary payments')
+      }
     } finally {
-      setLoading(false)
+      if (initialLoad) {
+        setLoading(false)
+        setInitialLoad(false)
+      }
     }
   }
 
