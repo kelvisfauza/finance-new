@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate } from '../lib/utils'
-import { Wallet, TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
+import { Wallet, TrendingUp, TrendingDown, DollarSign, AlertTriangle } from 'lucide-react'
 import { PendingCashDeposits } from '../components/PendingCashDeposits'
 import { PendingCoffeePayments } from '../components/PendingCoffeePayments'
+import { useFinanceSettings } from '../hooks/useFinanceSettings'
 
 interface CashTransaction {
   id: string
@@ -32,6 +33,7 @@ export const CashManagement = () => {
   const [loading, setLoading] = useState(true)
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0])
   const [activeTab, setActiveTab] = useState<'overview' | 'deposits' | 'payments'>('overview')
+  const { settings, shouldWarnCashImbalance } = useFinanceSettings()
 
   useEffect(() => {
     fetchData()
@@ -137,6 +139,30 @@ export const CashManagement = () => {
         <div className="p-6">
           {activeTab === 'overview' && (
             <div className="space-y-6">
+              {!settings.allow_negative_balance && balance && balance.current_balance < 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start">
+                  <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-red-900">Negative Balance Not Allowed</p>
+                    <p className="text-xs text-red-700 mt-1">
+                      Your current cash balance is negative. According to finance settings, payments should be blocked until balance is positive.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {shouldWarnCashImbalance(totalInflows - totalOutflows) && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start">
+                  <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-yellow-900">Cash Imbalance Warning</p>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      The difference between inflows and outflows exceeds the configured threshold of {formatCurrency(settings.cash_warning_threshold)}.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                   <div className="flex items-center justify-between">

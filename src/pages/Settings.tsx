@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { DollarSign, CheckCircle, TrendingUp, Tag, Bell, FileText } from 'lucide-react'
+import { DollarSign, CheckCircle, TrendingUp, Tag, Bell, FileText, Lock } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 import { CashSettings } from '../components/settings/CashSettings'
 import { ApprovalSettings } from '../components/settings/ApprovalSettings'
 import { AdvanceSettings } from '../components/settings/AdvanceSettings'
@@ -11,6 +12,30 @@ type SettingsTab = 'cash' | 'approvals' | 'advances' | 'expenses' | 'notificatio
 
 export const Settings = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('cash')
+  const { employee } = useAuth()
+
+  if (!employee) {
+    return null
+  }
+
+  const hasAccess = employee.department === 'Finance' || employee.department === 'Admin'
+
+  if (!hasAccess) {
+    return (
+      <div className="min-h-[calc(100vh-200px)] flex items-center justify-center">
+        <div className="text-center max-w-md p-8 bg-white rounded-xl shadow-lg border border-gray-200">
+          <Lock className="w-16 h-16 mx-auto mb-4 text-orange-500" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Restricted</h2>
+          <p className="text-gray-600 mb-4">
+            Finance Settings are only accessible to Finance and Admin department users.
+          </p>
+          <p className="text-sm text-gray-500">
+            Your department: <span className="font-semibold">{employee.department}</span>
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   const tabs = [
     { id: 'cash' as SettingsTab, name: 'General & Cash', icon: DollarSign, color: 'text-green-600' },

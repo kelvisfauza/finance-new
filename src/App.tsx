@@ -39,14 +39,7 @@ function App() {
             <Route path="reports" element={<ReportsNew />} />
             <Route path="reports-old" element={<Reports />} />
             <Route path="reports/:reportType" element={<Reports />} />
-            <Route
-              path="settings"
-              element={
-                <ProtectedRoute requireRoles={['Super Admin', 'Manager', 'Administrator']}>
-                  <Settings />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="settings" element={<Settings />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
