@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
-import { ShoppingCart, Download, Calendar, TrendingUp } from 'lucide-react'
+import { ShoppingCart, Download, Calendar, TrendingUp, Printer } from 'lucide-react'
 
 interface Purchase {
   id: string
@@ -121,6 +121,10 @@ export const PurchaseReport = () => {
     exportToCSV(exportData, `purchases-${startDate}-to-${endDate}`)
   }
 
+  const handlePrint = () => {
+    window.print()
+  }
+
   const totalKilograms = filteredPurchases.reduce((sum, p) => sum + Number(p.kilograms), 0)
   const totalBags = filteredPurchases.reduce((sum, p) => sum + Number(p.bags), 0)
   const totalAmount = filteredPurchases.reduce((sum, p) => sum + Number(p.total_amount || 0), 0)
@@ -130,24 +134,67 @@ export const PurchaseReport = () => {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="hidden print:block border-b-4 border-green-700 pb-4 mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <img
+            src="/gpcf-logo.png"
+            alt="Great Pearl Coffee Logo"
+            className="w-20 h-20 object-contain"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Great Pearl Coffee</h1>
+            <p className="text-sm text-gray-600">Purchase Department</p>
+            <p className="text-sm text-gray-600">Kasese, Uganda</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 print:border-0 print:shadow-none">
+        <div className="flex items-center justify-between mb-6 print:mb-4">
           <h3 className="text-xl font-semibold text-gray-900 flex items-center">
-            <ShoppingCart className="w-6 h-6 mr-2 text-green-600" />
+            <ShoppingCart className="w-6 h-6 mr-2 text-green-600 print:hidden" />
             Purchase Report
           </h3>
           {filteredPurchases.length > 0 && (
-            <button
-              onClick={handleExport}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Export
-            </button>
+            <div className="flex items-center gap-2 print:hidden">
+              <button
+                onClick={handlePrint}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Printer className="w-5 h-5 mr-2" />
+                Print
+              </button>
+              <button
+                onClick={handleExport}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Download className="w-5 h-5 mr-2" />
+                Export
+              </button>
+            </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="print:block print:mb-4 hidden">
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold">Report Period:</span> {formatDate(startDate)} to {formatDate(endDate)}
+          </p>
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold">Generated:</span> {formatDate(new Date().toISOString())}
+          </p>
+          {supplierFilter && (
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold">Supplier Filter:</span> {supplierFilter}
+            </p>
+          )}
+          {statusFilter && (
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold">Status Filter:</span> {statusFilter}
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 print:hidden">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Calendar className="w-4 h-4 inline mr-1" />
@@ -177,13 +224,13 @@ export const PurchaseReport = () => {
         <button
           onClick={fetchPurchases}
           disabled={loading}
-          className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium mb-4"
+          className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium mb-4 print:hidden"
         >
           {loading ? 'Loading Purchases...' : 'Load Purchases'}
         </button>
 
         {purchases.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:hidden">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Supplier</label>
               <input
@@ -294,6 +341,45 @@ export const PurchaseReport = () => {
           </div>
         </>
       )}
+
+      <style>{`
+        @media print {
+          @page {
+            margin: 0.5in;
+            size: A4 landscape;
+          }
+
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+
+          .print\\:hidden {
+            display: none !important;
+          }
+
+          .print\\:block {
+            display: block !important;
+          }
+
+          table {
+            page-break-inside: auto;
+          }
+
+          tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+
+          thead {
+            display: table-header-group;
+          }
+
+          .overflow-x-auto {
+            overflow: visible !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
-import { FileText, Download, Calendar } from 'lucide-react'
+import { FileText, Download, Calendar, Printer } from 'lucide-react'
 
 interface ReportData {
   openingBalance: number
@@ -173,26 +173,63 @@ export const FinanceMonthlyReport = () => {
     exportToCSV(exportData.summary, `finance-report-summary-${startDate}-to-${endDate}`)
   }
 
+  const handlePrint = () => {
+    window.print()
+  }
+
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="hidden print:block border-b-4 border-green-700 pb-4 mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <img
+            src="/gpcf-logo.png"
+            alt="Great Pearl Coffee Logo"
+            className="w-20 h-20 object-contain"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Great Pearl Coffee</h1>
+            <p className="text-sm text-gray-600">Finance Department</p>
+            <p className="text-sm text-gray-600">Kasese, Uganda</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 print:border-0 print:shadow-none">
+        <div className="flex items-center justify-between mb-6 print:mb-4">
           <h3 className="text-xl font-semibold text-gray-900 flex items-center">
-            <FileText className="w-6 h-6 mr-2 text-blue-600" />
+            <FileText className="w-6 h-6 mr-2 text-blue-600 print:hidden" />
             Finance Monthly Report
           </h3>
           {reportData && (
-            <button
-              onClick={handleExport}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Export
-            </button>
+            <div className="flex items-center gap-2 print:hidden">
+              <button
+                onClick={handlePrint}
+                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Printer className="w-5 h-5 mr-2" />
+                Print
+              </button>
+              <button
+                onClick={handleExport}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Download className="w-5 h-5 mr-2" />
+                Export
+              </button>
+            </div>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="print:block print:mb-4 hidden">
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold">Report Period:</span> {formatDate(startDate)} to {formatDate(endDate)}
+          </p>
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold">Generated:</span> {formatDate(new Date().toISOString())}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 print:hidden">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               <Calendar className="w-4 h-4 inline mr-1" />
@@ -222,7 +259,7 @@ export const FinanceMonthlyReport = () => {
         <button
           onClick={generateReport}
           disabled={loading}
-          className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+          className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium print:hidden"
         >
           {loading ? 'Generating Report...' : 'Generate Report'}
         </button>
@@ -230,7 +267,7 @@ export const FinanceMonthlyReport = () => {
 
       {reportData && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 print:grid-cols-2">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-sm border border-blue-200 p-6">
               <p className="text-sm font-medium text-blue-800 mb-1">Opening Balance</p>
               <p className="text-2xl font-bold text-blue-900">{formatCurrency(reportData.openingBalance)}</p>
@@ -303,6 +340,49 @@ export const FinanceMonthlyReport = () => {
           </div>
         </>
       )}
+
+      <style>{`
+        @media print {
+          @page {
+            margin: 0.5in;
+            size: A4;
+          }
+
+          body {
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
+          }
+
+          .print\\:hidden {
+            display: none !important;
+          }
+
+          .print\\:block {
+            display: block !important;
+          }
+
+          .print\\:grid-cols-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+
+          table {
+            page-break-inside: auto;
+          }
+
+          tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+
+          thead {
+            display: table-header-group;
+          }
+
+          .bg-gradient-to-br {
+            background: #f3f4f6 !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
