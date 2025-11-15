@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Navigation } from './Navigation'
 import { useAuth } from '../contexts/AuthContext'
-import { LogOut, User, Coffee } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
 import { useState } from 'react'
 
 export const Layout = () => {
@@ -19,9 +19,11 @@ export const Layout = () => {
         <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 flex flex-col">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center">
-              <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center mr-3">
-                <Coffee className="w-6 h-6 text-white" />
-              </div>
+              <img
+                src="/gpcf-logo.png"
+                alt="Great Pearl Coffee"
+                className="w-12 h-12 object-contain mr-3"
+              />
               <div>
                 <h1 className="text-lg font-bold text-gray-900">Great Pearl</h1>
                 <p className="text-xs text-gray-600">Finance Portal</p>

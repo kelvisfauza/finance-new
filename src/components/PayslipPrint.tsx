@@ -57,9 +57,9 @@ export const PayslipPrint = ({ payment, employeeDetails, onClose }: PayslipPrint
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <img
-                  src="/logo without bc.png"
+                  src="/gpcf-logo.png"
                   alt="Great Pearl Coffee Logo"
-                  className="w-16 h-16 object-contain"
+                  className="w-20 h-20 object-contain"
                 />
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">Great Pearl Coffee</h1>

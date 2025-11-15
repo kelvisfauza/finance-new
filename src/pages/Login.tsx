@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { LogIn, Coffee } from 'lucide-react'
+import { LogIn } from 'lucide-react'
 
 export const Login = () => {
   const [email, setEmail] = useState('')
@@ -31,8 +31,12 @@ export const Login = () => {
       <div className="max-w-md w-full mx-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-600 rounded-2xl mb-4">
-              <Coffee className="w-8 h-8 text-white" />
+            <div className="flex justify-center mb-4">
+              <img
+                src="/gpcf-logo.png"
+                alt="Great Pearl Coffee"
+                className="w-24 h-24 object-contain"
+              />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Great Pearl Finance
