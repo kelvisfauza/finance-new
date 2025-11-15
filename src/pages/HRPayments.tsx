@@ -71,9 +71,8 @@ export const HRPayments = () => {
         .select('*')
 
       query = query
-        .eq('admin_approved', true)
         .eq('finance_approved', false)
-        .eq('status', 'Pending Finance')
+        .in('status', ['approved', 'Approved', 'Pending Finance'])
 
       const { data: paymentsData, error: paymentsError } = await query
         .order('created_at', { ascending: false })
