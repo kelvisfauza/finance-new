@@ -93,15 +93,15 @@ export const Dashboard = () => {
     try {
       const { data: transactions, error } = await supabase
         .from('finance_cash_transactions')
-        .select('date, transaction_type, amount')
-        .order('date', { ascending: false })
+        .select('created_at, transaction_type, amount')
+        .order('created_at', { ascending: false })
 
       if (error) throw error
 
       const monthMap = new Map<string, { in: number; out: number }>()
 
       transactions?.forEach((t: any) => {
-        const monthKey = t.date.substring(0, 7)
+        const monthKey = t.created_at.substring(0, 7)
         if (!monthMap.has(monthKey)) {
           monthMap.set(monthKey, { in: 0, out: 0 })
         }
@@ -139,25 +139,26 @@ export const Dashboard = () => {
 
   const fetchDailyData = async (monthKey: string) => {
     try {
-      const startDate = `${monthKey}-01`
-      const endDate = `${monthKey}-31`
+      const startDate = `${monthKey}-01T00:00:00Z`
+      const endDate = `${monthKey}-31T23:59:59Z`
 
       const { data, error } = await supabase
         .from('finance_cash_transactions')
-        .select('date, transaction_type, amount')
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date', { ascending: true })
+        .select('created_at, transaction_type, amount')
+        .gte('created_at', startDate)
+        .lte('created_at', endDate)
+        .order('created_at', { ascending: true })
 
       if (error) throw error
 
       const dailyMap = new Map<string, { in: number; out: number }>()
 
       data?.forEach((t: any) => {
-        if (!dailyMap.has(t.date)) {
-          dailyMap.set(t.date, { in: 0, out: 0 })
+        const dateOnly = t.created_at.substring(0, 10)
+        if (!dailyMap.has(dateOnly)) {
+          dailyMap.set(dateOnly, { in: 0, out: 0 })
         }
-        const day = dailyMap.get(t.date)!
+        const day = dailyMap.get(dateOnly)!
         if (t.transaction_type === 'deposit' || t.transaction_type === 'income') {
           day.in += Number(t.amount)
         } else {
@@ -179,12 +180,15 @@ export const Dashboard = () => {
 
   const fetchTodayData = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = new Date()
+      const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString()
+      const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString()
 
       const { data, error } = await supabase
         .from('finance_cash_transactions')
         .select('transaction_type, amount')
-        .eq('date', today)
+        .gte('created_at', startOfDay)
+        .lte('created_at', endOfDay)
 
       if (error) throw error
 
