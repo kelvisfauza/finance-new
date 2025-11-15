@@ -27,6 +27,8 @@ interface SalaryPayment {
   payment_slip_number: string | null
   created_at: string
   updated_at: string
+  employee_name?: string
+  employee_phone?: string
 }
 
 export const HRPayments = () => {
@@ -53,14 +55,40 @@ export const HRPayments = () => {
   const fetchPayments = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      const { data: paymentsData, error: paymentsError } = await supabase
         .from('money_requests')
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (paymentsError) throw paymentsError
 
-      setPayments(data || [])
+      if (paymentsData && paymentsData.length > 0) {
+        const userIds = paymentsData.map((p: any) => p.user_id).filter(Boolean)
+
+        const { data: employees, error: empError } = await supabase
+          .from('employees')
+          .select('auth_user_id, name, phone')
+          .in('auth_user_id', userIds)
+
+        if (empError) {
+          console.error('Error fetching employee names:', empError)
+        }
+
+        type EmployeeInfo = { name: string; phone: string }
+        const employeeMap = new Map<string, EmployeeInfo>(
+          employees?.map((emp: any) => [emp.auth_user_id, { name: emp.name, phone: emp.phone }]) || []
+        )
+
+        const enrichedPayments = paymentsData.map((payment: any) => ({
+          ...payment,
+          employee_name: employeeMap.get(payment.user_id)?.name || payment.requested_by,
+          employee_phone: employeeMap.get(payment.user_id)?.phone
+        }))
+
+        setPayments(enrichedPayments)
+      } else {
+        setPayments([])
+      }
     } catch (error: any) {
       console.error('Error fetching salary payments:', error)
       alert('Failed to fetch salary payments')
@@ -79,6 +107,7 @@ export const HRPayments = () => {
     if (searchTerm) {
       filtered = filtered.filter(payment =>
         payment.request_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        payment.employee_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         payment.requested_by?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         payment.reason?.toLowerCase().includes(searchTerm.toLowerCase())
       )
@@ -106,16 +135,13 @@ export const HRPayments = () => {
 
       if (error) throw error
 
-      const { data: employeeData } = await supabase
-        .from('employees')
-        .select('name, phone')
-        .eq('id', payment.user_id)
-        .maybeSingle()
+      const employeeName = payment.employee_name || payment.requested_by
+      const employeePhone = payment.employee_phone
 
-      if (employeeData?.phone) {
+      if (employeePhone) {
         await sendApprovalResponseSMS(
-          employeeData.name,
-          employeeData.phone,
+          employeeName,
+          employeePhone,
           payment.amount,
           'approved',
           user?.email || 'Admin',
@@ -153,16 +179,13 @@ export const HRPayments = () => {
 
       if (error) throw error
 
-      const { data: employeeData } = await supabase
-        .from('employees')
-        .select('name, phone')
-        .eq('id', payment.user_id)
-        .maybeSingle()
+      const employeeName = payment.employee_name || payment.requested_by
+      const employeePhone = payment.employee_phone
 
-      if (employeeData?.phone) {
+      if (employeePhone) {
         await sendApprovalResponseSMS(
-          employeeData.name,
-          employeeData.phone,
+          employeeName,
+          employeePhone,
           payment.amount,
           'rejected',
           user?.email || 'Admin',
@@ -185,7 +208,7 @@ export const HRPayments = () => {
       'Request Type': payment.request_type,
       Amount: payment.amount,
       Reason: payment.reason,
-      'Requested By': payment.requested_by,
+      'Requested By': payment.employee_name || payment.requested_by,
       Status: payment.status,
       'Approval Stage': payment.approval_stage,
       'Finance Approved By': payment.finance_approved_by || 'N/A',
@@ -283,7 +306,7 @@ export const HRPayments = () => {
                       <td className="py-3 px-4 font-medium">{payment.request_type}</td>
                       <td className="py-3 px-4 text-right">{formatCurrency(Number(payment.amount))}</td>
                       <td className="py-3 px-4 text-sm">{payment.reason}</td>
-                      <td className="py-3 px-4 text-sm">{payment.requested_by}</td>
+                      <td className="py-3 px-4 text-sm">{payment.employee_name || payment.requested_by}</td>
                       <td className="py-3 px-4">
                         <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
                           {payment.approval_stage?.replace('_', ' ')}
@@ -338,15 +361,15 @@ export const HRPayments = () => {
                             <button
                               onClick={async () => {
                                 const { data: profile } = await supabase
-                                  .from('profiles')
+                                  .from('employees')
                                   .select('name, phone, email')
-                                  .eq('user_id', payment.user_id)
+                                  .eq('auth_user_id', payment.user_id)
                                   .maybeSingle()
 
                                 setEmployeeDetails({
-                                  name: profile?.name || payment.requested_by,
-                                  phone: profile?.phone,
-                                  email: profile?.email
+                                  name: payment.employee_name || profile?.name || payment.requested_by,
+                                  phone: payment.employee_phone || profile?.phone,
+                                  email: profile?.email || payment.requested_by
                                 })
                                 setPrintingPayment(payment)
                               }}
