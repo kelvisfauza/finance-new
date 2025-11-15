@@ -4,6 +4,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
 import { Dashboard } from './pages/Dashboard'
+import { FinanceDashboard } from './pages/FinanceDashboard'
 import { CoffeePayments } from './pages/CoffeePayments'
 import { SupplierAdvances } from './pages/SupplierAdvances'
 import { CashManagement } from './pages/CashManagement'
@@ -30,6 +31,7 @@ function App() {
             }
           >
             <Route index element={<Dashboard />} />
+            <Route path="finance" element={<FinanceDashboard />} />
             <Route path="coffee-payments" element={<CoffeePayments />} />
             <Route path="supplier-advances" element={<SupplierAdvances />} />
             <Route path="cash-management" element={<CashManagement />} />

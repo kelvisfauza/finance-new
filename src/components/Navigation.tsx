@@ -8,12 +8,14 @@ import {
   FileText as FileTextIcon,
   Users,
   FileText,
-  Settings
+  Settings,
+  TrendingUp
 } from 'lucide-react'
 import { PermissionGate } from './PermissionGate'
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/finance', label: 'Finance Overview', icon: TrendingUp },
   { path: '/coffee-payments', label: 'Coffee Payments', icon: Coffee },
   { path: '/supplier-advances', label: 'Supplier Advances', icon: HandCoins },
   { path: '/cash-management', label: 'Cash Management', icon: Wallet },
