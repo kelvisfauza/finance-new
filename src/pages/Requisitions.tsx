@@ -73,11 +73,21 @@ export const Requisitions = () => {
     }
   }
 
+  const getDisplayStatus = (req: Requisition) => {
+    if (req.status === 'Rejected') return 'Rejected'
+    if (req.admin_approved || req.status === 'Approved') return 'Approved'
+    if (req.finance_approved || req.status === 'Pending Admin Approval') return 'Pending Admin Approval'
+    return 'Pending Finance'
+  }
+
   const filterRequisitions = () => {
     let filtered = requisitions
 
     if (statusFilter) {
-      filtered = filtered.filter(req => req.status === statusFilter)
+      filtered = filtered.filter(req => {
+        const displayStatus = getDisplayStatus(req)
+        return displayStatus === statusFilter || req.status === statusFilter
+      })
     }
 
     if (searchTerm) {
@@ -123,7 +133,7 @@ export const Requisitions = () => {
             finance_approved: true,
             finance_approved_by: employee.name,
             finance_approved_at: new Date().toISOString(),
-            approval_stage: 'Finance Reviewed',
+            status: 'Pending Admin Approval',
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedRequisition.id)
@@ -139,7 +149,6 @@ export const Requisitions = () => {
             admin_approved: true,
             admin_approved_by: employee.name,
             admin_approved_at: new Date().toISOString(),
-            approval_stage: 'Final Approved',
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedRequisition.id)
@@ -165,6 +174,9 @@ export const Requisitions = () => {
           .from('approval_requests')
           .update({
             status: 'Rejected',
+            admin_approved: false,
+            admin_approved_by: employee.name,
+            admin_approved_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedRequisition.id)
@@ -246,7 +258,8 @@ export const Requisitions = () => {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             >
               <option value="">All Status</option>
-              <option value="Pending">Pending</option>
+              <option value="Pending Finance">Pending Finance</option>
+              <option value="Pending Admin Approval">Pending Admin Approval</option>
               <option value="Approved">Approved</option>
               <option value="Rejected">Rejected</option>
             </select>
@@ -295,59 +308,100 @@ export const Requisitions = () => {
                     </td>
                     <td className="py-3 px-4 text-right font-semibold">{formatCurrency(requisition.amount)}</td>
                     <td className="py-3 px-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        requisition.status === 'Approved'
-                          ? 'bg-green-100 text-green-800'
-                          : requisition.status === 'Rejected'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {requisition.status === 'Approved' ? (
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                        ) : requisition.status === 'Rejected' ? (
-                          <XCircle className="w-3 h-3 mr-1" />
-                        ) : (
-                          <Clock className="w-3 h-3 mr-1" />
-                        )}
-                        {requisition.status}
-                      </span>
+                      {(() => {
+                        const displayStatus = getDisplayStatus(requisition)
+                        return (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            displayStatus === 'Approved'
+                              ? 'bg-green-100 text-green-800'
+                              : displayStatus === 'Rejected'
+                              ? 'bg-red-100 text-red-800'
+                              : displayStatus === 'Pending Admin Approval'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {displayStatus === 'Approved' ? (
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                            ) : displayStatus === 'Rejected' ? (
+                              <XCircle className="w-3 h-3 mr-1" />
+                            ) : (
+                              <Clock className="w-3 h-3 mr-1" />
+                            )}
+                            {displayStatus}
+                          </span>
+                        )
+                      })()}
                     </td>
                     <td className="py-3 px-4 text-sm">{requisition.daterequested}</td>
                     <td className="py-3 px-4 text-center">
-                      {requisition.status === 'Pending' && (
-                        <div className="flex justify-center gap-2">
-                          {isFinanceRole && !requisition.finance_approved && (
-                            <button
-                              onClick={() => handleFinanceReview(requisition)}
-                              disabled={processing}
-                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-                            >
-                              Finance Review
-                            </button>
-                          )}
-                          {isAdminRole && (
-                            <>
-                              <button
-                                onClick={() => handleAdminApprove(requisition)}
-                                disabled={processing}
-                                className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
-                              >
-                                Approve & Release
-                              </button>
-                              <button
-                                onClick={() => handleReject(requisition)}
-                                disabled={processing}
-                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                      {requisition.finance_approved && requisition.status === 'Pending' && (
-                        <span className="text-xs text-blue-600 font-medium">Finance Reviewed</span>
-                      )}
+                      {(() => {
+                        const displayStatus = getDisplayStatus(requisition)
+
+                        if (displayStatus === 'Approved' || displayStatus === 'Rejected') {
+                          return null
+                        }
+
+                        if (displayStatus === 'Pending Finance') {
+                          return (
+                            <div className="flex justify-center gap-2">
+                              {isFinanceRole && (
+                                <button
+                                  onClick={() => handleFinanceReview(requisition)}
+                                  disabled={processing}
+                                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                >
+                                  Finance Review
+                                </button>
+                              )}
+                              {isAdminRole && (
+                                <>
+                                  <button
+                                    onClick={() => handleAdminApprove(requisition)}
+                                    disabled={processing}
+                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                                  >
+                                    Approve & Release
+                                  </button>
+                                  <button
+                                    onClick={() => handleReject(requisition)}
+                                    disabled={processing}
+                                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )
+                        }
+
+                        if (displayStatus === 'Pending Admin Approval') {
+                          return (
+                            <div className="flex justify-center gap-2">
+                              {isAdminRole && (
+                                <>
+                                  <button
+                                    onClick={() => handleAdminApprove(requisition)}
+                                    disabled={processing}
+                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                                  >
+                                    Approve & Release
+                                  </button>
+                                  <button
+                                    onClick={() => handleReject(requisition)}
+                                    disabled={processing}
+                                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )
+                        }
+
+                        return null
+                      })()}
                     </td>
                   </tr>
                 ))
