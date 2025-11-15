@@ -129,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const hasAccess =
           employeeData.department === 'Finance' ||
           employeeData.permissions.includes('Finance') ||
-          ['Super Admin', 'Manager', 'Administrator'].includes(employeeData.role)
+          ['Super Admin', 'Manager', 'Administrator', 'Finance'].includes(employeeData.role)
 
         if (!hasAccess) {
           await supabase.auth.signOut()
@@ -165,7 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isFinanceAccess =
     employee?.department === 'Finance' ||
     employee?.permissions.includes('Finance') ||
-    ['Super Admin', 'Manager', 'Administrator'].includes(employee?.role || '')
+    ['Super Admin', 'Manager', 'Administrator', 'Finance'].includes(employee?.role || '')
 
   const value = {
     user,
