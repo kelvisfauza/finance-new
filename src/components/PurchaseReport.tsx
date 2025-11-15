@@ -134,22 +134,7 @@ export const PurchaseReport = () => {
 
   return (
     <div className="space-y-6">
-      <div className="hidden print:block border-b-4 border-green-700 pb-4 mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <img
-            src="/gpcf-logo.png"
-            alt="Great Pearl Coffee Logo"
-            className="w-20 h-20 object-contain"
-          />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Great Pearl Coffee</h1>
-            <p className="text-sm text-gray-600">Purchase Department</p>
-            <p className="text-sm text-gray-600">Kasese, Uganda</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 print:border-0 print:shadow-none">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 print:border-0 print:shadow-none print:p-0">
         <div className="flex items-center justify-between mb-6 print:mb-4">
           <h3 className="text-xl font-semibold text-gray-900 flex items-center">
             <ShoppingCart className="w-6 h-6 mr-2 text-green-600 print:hidden" />

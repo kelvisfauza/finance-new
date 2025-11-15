@@ -211,8 +211,58 @@
   .mobile-hidden {
     display: none;
   }
-  
+
   .mobile-full {
     width: 100%;
+  }
+}
+
+/* Print styles */
+@media print {
+  /* Hide sidebar and navigation */
+  aside,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Reset main content positioning */
+  main {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Full width for printed content */
+  body {
+    margin: 0;
+    padding: 0;
+    background: white !important;
+  }
+
+  /* Show print-only elements */
+  .print\:block {
+    display: block !important;
+  }
+
+  /* Remove shadows and rounded corners */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Preserve colors */
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  /* Page breaks */
+  table, img, svg {
+    page-break-inside: avoid;
+  }
+
+  /* Remove transitions for print */
+  * {
+    transition: none !important;
+    animation: none !important;
   }
 }
