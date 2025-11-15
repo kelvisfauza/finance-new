@@ -84,15 +84,11 @@ export const Requisitions = () => {
         .select('*')
         .eq('type', 'Requisition')
 
-      if (isFinanceRole && !isAdminRole) {
+      if (isFinanceRole) {
         query = query
+          .eq('admin_approved', true)
           .eq('finance_approved', false)
-          .in('status', ['Pending Finance', 'Pending', 'Processing'])
-      } else if (isAdminRole && !isFinanceRole) {
-        query = query
-          .eq('finance_approved', true)
-          .eq('admin_approved', false)
-          .in('status', ['Pending Admin Approval', 'Finance Approved'])
+          .eq('status', 'Pending Finance')
       }
 
       const { data, error } = await query.order('created_at', { ascending: false })
@@ -167,28 +163,13 @@ export const Requisitions = () => {
       setProcessing(true)
 
       if (actionType === 'finance-review') {
-        const { error } = await supabase
+        const { error: updateError } = await supabase
           .from('approval_requests')
           .update({
             finance_approved: true,
             finance_approved_by: employee.name,
             finance_approved_at: new Date().toISOString(),
-            status: 'Pending Admin Approval',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', selectedRequisition.id)
-
-        if (error) throw error
-
-        fetchRequisitions()
-      } else if (actionType === 'admin-approve') {
-        const { error: updateError } = await supabase
-          .from('approval_requests')
-          .update({
             status: 'Approved',
-            admin_approved: true,
-            admin_approved_by: employee.name,
-            admin_approved_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedRequisition.id)
@@ -208,15 +189,26 @@ export const Requisitions = () => {
 
         if (expenseError) throw expenseError
 
+        const { error: cashError } = await supabase
+          .from('finance_cash_transactions')
+          .insert({
+            type: 'expense',
+            amount: selectedRequisition.amount,
+            description: `Requisition: ${selectedRequisition.title}`,
+            reference: selectedRequisition.id,
+            created_by: employee.name,
+            created_at: new Date().toISOString()
+          })
+
+        if (cashError) throw cashError
+
         fetchRequisitions()
       } else if (actionType === 'reject') {
         const { error } = await supabase
           .from('approval_requests')
           .update({
             status: 'Rejected',
-            admin_approved: false,
-            admin_approved_by: employee.name,
-            admin_approved_at: new Date().toISOString(),
+            finance_approved: false,
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedRequisition.id)
@@ -386,47 +378,13 @@ export const Requisitions = () => {
                           return (
                             <div className="flex justify-center gap-2">
                               {isFinanceRole && (
-                                <button
-                                  onClick={() => handleFinanceReview(requisition)}
-                                  disabled={processing}
-                                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
-                                >
-                                  Finance Review
-                                </button>
-                              )}
-                              {isAdminRole && (
                                 <>
                                   <button
-                                    onClick={() => handleAdminApprove(requisition)}
+                                    onClick={() => handleFinanceReview(requisition)}
                                     disabled={processing}
                                     className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                                   >
-                                    Approve & Release
-                                  </button>
-                                  <button
-                                    onClick={() => handleReject(requisition)}
-                                    disabled={processing}
-                                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors disabled:opacity-50"
-                                  >
-                                    Reject
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          )
-                        }
-
-                        if (displayStatus === 'Pending Admin Approval') {
-                          return (
-                            <div className="flex justify-center gap-2">
-                              {isAdminRole && (
-                                <>
-                                  <button
-                                    onClick={() => handleAdminApprove(requisition)}
-                                    disabled={processing}
-                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
-                                  >
-                                    Approve & Release
+                                    Approve & Pay
                                   </button>
                                   <button
                                     onClick={() => handleReject(requisition)}

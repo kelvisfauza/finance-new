@@ -66,9 +66,16 @@ export const HRPayments = () => {
         setLoading(true)
       }
 
-      const { data: paymentsData, error: paymentsError } = await supabase
+      let query = supabase
         .from('money_requests')
         .select('*')
+
+      query = query
+        .eq('admin_approved', true)
+        .eq('finance_approved', false)
+        .eq('status', 'Pending Finance')
+
+      const { data: paymentsData, error: paymentsError } = await query
         .order('created_at', { ascending: false })
 
       if (paymentsError) throw paymentsError
@@ -139,18 +146,45 @@ export const HRPayments = () => {
     try {
       setProcessingId(payment.id)
 
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('money_requests')
         .update({
-          status: 'approved',
-          admin_approved_at: new Date().toISOString(),
-          admin_approved_by: user?.email || 'Admin',
-          approval_stage: 'admin_approved',
+          status: 'Approved',
+          finance_approved: true,
+          finance_approved_at: new Date().toISOString(),
+          finance_approved_by: user?.email || 'Finance',
+          approval_stage: 'finance_approved',
           updated_at: new Date().toISOString()
         })
         .eq('id', payment.id)
 
-      if (error) throw error
+      if (updateError) throw updateError
+
+      const { error: paymentError } = await supabase
+        .from('payment_records')
+        .insert({
+          payment_type: payment.request_type,
+          amount: payment.amount,
+          employee_id: payment.user_id,
+          description: payment.reason,
+          money_request_id: payment.id,
+          created_at: new Date().toISOString()
+        })
+
+      if (paymentError) throw paymentError
+
+      const { error: cashError } = await supabase
+        .from('finance_cash_transactions')
+        .insert({
+          type: 'salary',
+          amount: payment.amount,
+          description: `${payment.request_type}: ${payment.reason}`,
+          reference: payment.id,
+          created_by: user?.email || 'Finance',
+          created_at: new Date().toISOString()
+        })
+
+      if (cashError) throw cashError
 
       const employeeName = payment.employee_name || payment.requested_by
       const employeePhone = payment.employee_phone
@@ -161,13 +195,13 @@ export const HRPayments = () => {
           employeePhone,
           payment.amount,
           'approved',
-          user?.email || 'Admin',
+          user?.email || 'Finance',
           payment.request_type
         )
       }
 
       await fetchPayments()
-      alert('Payment request approved successfully')
+      alert('Payment approved and processed successfully')
     } catch (error: any) {
       console.error('Error approving payment:', error)
       alert('Failed to approve payment request')
@@ -188,7 +222,8 @@ export const HRPayments = () => {
       const { error } = await supabase
         .from('money_requests')
         .update({
-          status: 'rejected',
+          status: 'Rejected',
+          finance_approved: false,
           rejection_reason: reason,
           updated_at: new Date().toISOString()
         })
