@@ -2,183 +2,102 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate } from '../lib/utils'
 import { Coffee, DollarSign, AlertTriangle, CheckCircle } from 'lucide-react'
-
-interface CoffeeRecord {
-  id: string
-  batch_number: string
-  supplier_name: string
-  supplier_id: string
-  kilograms: number
-  bags: number
-  coffee_type: string
-  date: string
-  status: string
-  created_at: string
-  created_by: string
-}
-
-interface QualityAssessment {
-  id: string
-  suggested_price: number
-  assessed_by: string
-  moisture?: number
-  group1_defects?: number
-  group2_defects?: number
-  store_record_id: string
-}
-
-interface PendingPayment extends CoffeeRecord {
-  quality_assessment?: QualityAssessment
-  calculated_amount: number
-  has_advance: boolean
-  advance_amount: number
-}
+import { usePendingCoffeePayments } from '../hooks/usePendingCoffeePayments'
 
 export const PendingCoffeePayments = () => {
-  const [payments, setPayments] = useState<PendingPayment[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: lots, isLoading, error, refetch } = usePendingCoffeePayments()
   const [processing, setProcessing] = useState<string | null>(null)
   const [cashBalance, setCashBalance] = useState(0)
-  const [confirmPayment, setConfirmPayment] = useState<PendingPayment | null>(null)
+  const [confirmPayment, setConfirmPayment] = useState<any | null>(null)
+  const [supplierAdvances, setSupplierAdvances] = useState<Record<string, number>>({})
 
   useEffect(() => {
-    fetchPendingPayments()
+    fetchCashBalanceAndAdvances()
   }, [])
 
-  const fetchPendingPayments = async () => {
+  const fetchCashBalanceAndAdvances = async () => {
     try {
-      setLoading(true)
-
-      const [coffeeRecordsResult, paidBatchesResult, qualityAssessmentsResult, advancesResult, balanceResult] = await Promise.all([
-        supabase
-          .from('coffee_records')
-          .select('id, batch_number, supplier_name, supplier_id, kilograms, bags, coffee_type, date, status, created_at, created_by')
-          .in('status', ['pending', 'assessed', 'submitted_to_finance']),
-
-        supabase
-          .from('payment_records')
-          .select('batch_number')
-          .eq('status', 'Paid'),
-
-        supabase
-          .from('quality_assessments')
-          .select('id, suggested_price, assessed_by, moisture, group1_defects, group2_defects, store_record_id'),
-
-        supabase
-          .from('supplier_advances')
-          .select('supplier_id, amount_ugx, outstanding_ugx, is_closed'),
-
+      const [balanceResult, advancesResult] = await Promise.all([
         supabase
           .from('finance_cash_balance')
           .select('current_balance')
           .order('last_updated', { ascending: false })
           .limit(1)
-          .maybeSingle()
+          .maybeSingle(),
+        supabase
+          .from('supplier_advances')
+          .select('supplier_id, amount_ugx, outstanding_ugx, is_closed')
+          .eq('is_closed', false)
       ])
 
-      if (coffeeRecordsResult.error) throw coffeeRecordsResult.error
-      if (paidBatchesResult.error) throw paidBatchesResult.error
-      if (qualityAssessmentsResult.error) throw qualityAssessmentsResult.error
-      if (advancesResult.error) throw advancesResult.error
-
-      const paidBatches = new Set(paidBatchesResult.data?.map((p: any) => p.batch_number) || [])
-      const unpaidRecords = coffeeRecordsResult.data?.filter((r: any) => !paidBatches.has(r.batch_number)) || []
-
-      const pendingWithDetails: PendingPayment[] = unpaidRecords.map((record: any) => {
-        const quality = qualityAssessmentsResult.data?.find((q: any) => q.store_record_id === record.id)
-        const pricePerKg = quality?.suggested_price || 0
-        const calculatedAmount = record.kilograms * pricePerKg
-
-        const activeAdvances = advancesResult.data?.filter(
-          (a: any) => a.supplier_id === record.supplier_id && !a.is_closed
-        ) || []
-        const totalAdvance = activeAdvances.reduce((sum: number, a: any) => sum + Number(a.outstanding_ugx || a.amount_ugx), 0)
-
-        return {
-          ...record,
-          quality_assessment: quality,
-          calculated_amount: calculatedAmount,
-          has_advance: totalAdvance > 0,
-          advance_amount: totalAdvance
-        }
-      })
-
-      setPayments(pendingWithDetails)
       setCashBalance(balanceResult.data?.current_balance || 0)
-    } catch (error: any) {
-      console.error('Error fetching pending payments:', error)
-      alert(`Failed to fetch pending payments: ${error.message}`)
-    } finally {
-      setLoading(false)
+
+      if (advancesResult.data) {
+        const advancesMap: Record<string, number> = {}
+        advancesResult.data.forEach((advance: any) => {
+          const existing = advancesMap[advance.supplier_id] || 0
+          advancesMap[advance.supplier_id] = existing + Number(advance.outstanding_ugx || advance.amount_ugx)
+        })
+        setSupplierAdvances(advancesMap)
+      }
+    } catch (err: any) {
+      console.error('Error fetching cash balance and advances:', err)
     }
   }
 
-  const handleProcessPayment = async (payment: PendingPayment) => {
-    const finalAmount = Math.max(0, payment.calculated_amount - payment.advance_amount)
+  const handleProcessPayment = (lot: any) => {
+    const advanceAmount = supplierAdvances[lot.supplier_id] || 0
+    const finalAmount = Math.max(0, lot.total_amount_ugx - advanceAmount)
 
     if (cashBalance < finalAmount) {
       return
     }
 
-    setConfirmPayment(payment)
+    setConfirmPayment({ ...lot, advanceAmount, finalAmount })
   }
 
   const confirmProcessPayment = async () => {
     if (!confirmPayment) return
-    const payment = confirmPayment
-    const finalAmount = Math.max(0, payment.calculated_amount - payment.advance_amount)
+    const lot = confirmPayment
 
     setConfirmPayment(null)
 
     try {
-      setProcessing(payment.id)
+      setProcessing(lot.id)
 
       const { data: { user } } = await supabase.auth.getUser()
       const processedBy = user?.email || 'Finance'
 
-      const { error: paymentError } = await supabase
-        .from('payment_records')
-        .insert({
-          supplier: payment.supplier_name,
-          amount: finalAmount,
-          amount_paid: finalAmount,
-          balance: 0,
-          status: 'Paid',
-          method: 'Cash',
-          date: new Date().toISOString().split('T')[0],
-          batch_number: payment.batch_number,
-          quality_assessment_id: payment.quality_assessment?.id
+      const { error: updateError } = await supabase
+        .from('finance_coffee_lots')
+        .update({
+          finance_status: 'PAID',
+          finance_notes: `Paid ${lot.finalAmount} UGX on ${new Date().toISOString()}`
         })
+        .eq('id', lot.id)
 
-      if (paymentError) throw paymentError
+      if (updateError) throw updateError
 
-      const { error: recordError } = await supabase
-        .from('coffee_records')
-        .update({ status: 'inventory' })
-        .eq('id', payment.id)
-
-      if (recordError) throw recordError
-
-      if (payment.has_advance) {
+      if (lot.advanceAmount > 0 && lot.supplier_id) {
         const { error: advanceError } = await supabase
           .from('supplier_advances')
           .update({ is_closed: true, outstanding_ugx: 0 })
-          .eq('supplier_id', payment.supplier_id)
+          .eq('supplier_id', lot.supplier_id)
           .eq('is_closed', false)
 
-        if (advanceError) throw advanceError
+        if (advanceError) console.error('Error closing advances:', advanceError)
       }
 
-      const newBalance = cashBalance - finalAmount
+      const newBalance = cashBalance - lot.finalAmount
 
       const { error: transactionError } = await supabase
         .from('finance_cash_transactions')
         .insert({
           transaction_type: 'PAYMENT',
-          amount: -finalAmount,
+          amount: -lot.finalAmount,
           balance_after: newBalance,
-          reference: payment.batch_number,
-          notes: `Payment to ${payment.supplier_name} for batch ${payment.batch_number}`,
+          reference: lot.coffee_record_id || `Coffee lot ${lot.id}`,
+          notes: `Coffee payment for ${lot.quantity_kg} kg @ ${lot.unit_price_ugx} UGX/kg`,
           created_by: processedBy,
           status: 'confirmed',
           confirmed_by: processedBy,
@@ -197,15 +116,17 @@ export const PendingCoffeePayments = () => {
 
       if (balanceError) throw balanceError
 
-      fetchPendingPayments()
-    } catch (error: any) {
-      console.error('Error processing payment:', error)
+      fetchCashBalanceAndAdvances()
+      refetch()
+    } catch (err: any) {
+      console.error('Error processing payment:', err)
+      alert(`Failed to process payment: ${err.message}`)
     } finally {
       setProcessing(null)
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="animate-pulse">
@@ -214,6 +135,16 @@ export const PendingCoffeePayments = () => {
             <div className="h-16 bg-gray-200 rounded"></div>
             <div className="h-16 bg-gray-200 rounded"></div>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-600">
+          Failed to load pending coffee payments. Please try again.
         </div>
       </div>
     )
@@ -232,20 +163,20 @@ export const PendingCoffeePayments = () => {
         </div>
       </div>
 
-      {payments.length === 0 ? (
+      {!lots || lots.length === 0 ? (
         <div className="text-center py-8">
           <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-          <p className="text-gray-600">No pending payments</p>
-          <p className="text-sm text-gray-500 mt-1">All supplier payments are up to date</p>
+          <p className="text-gray-600">No pending coffee payments</p>
+          <p className="text-sm text-gray-500 mt-1">All coffee payments are up to date</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Batch #</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Supplier</th>
-                <th className="text-right py-3 px-4 font-semibold text-gray-700">Weight (kg)</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Record ID</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Assessed By</th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">Quantity (kg)</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Price/kg</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Total</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Advance</th>
@@ -254,23 +185,24 @@ export const PendingCoffeePayments = () => {
               </tr>
             </thead>
             <tbody>
-              {payments.map((payment) => {
-                const finalAmount = Math.max(0, payment.calculated_amount - payment.advance_amount)
+              {lots.map((lot) => {
+                const advanceAmount = supplierAdvances[lot.supplier_id] || 0
+                const finalAmount = Math.max(0, lot.total_amount_ugx - advanceAmount)
                 const canPay = cashBalance >= finalAmount
 
                 return (
-                  <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 font-medium">{payment.batch_number}</td>
-                    <td className="py-3 px-4">{payment.supplier_name}</td>
-                    <td className="py-3 px-4 text-right">{payment.kilograms.toLocaleString()}</td>
+                  <tr key={lot.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="py-3 px-4 font-medium">{lot.coffee_record_id || 'N/A'}</td>
+                    <td className="py-3 px-4">{lot.assessed_by}</td>
+                    <td className="py-3 px-4 text-right">{Number(lot.quantity_kg).toLocaleString()}</td>
                     <td className="py-3 px-4 text-right">
-                      {formatCurrency(payment.quality_assessment?.suggested_price || 0)}
+                      {formatCurrency(lot.unit_price_ugx)}
                     </td>
                     <td className="py-3 px-4 text-right font-semibold">
-                      {formatCurrency(payment.calculated_amount)}
+                      {formatCurrency(lot.total_amount_ugx)}
                     </td>
                     <td className="py-3 px-4 text-right text-orange-700">
-                      {payment.has_advance ? `-${formatCurrency(payment.advance_amount)}` : '-'}
+                      {advanceAmount > 0 ? `-${formatCurrency(advanceAmount)}` : '-'}
                     </td>
                     <td className="py-3 px-4 text-right font-bold text-green-700">
                       {formatCurrency(finalAmount)}
@@ -283,11 +215,11 @@ export const PendingCoffeePayments = () => {
                         </div>
                       ) : (
                         <button
-                          onClick={() => handleProcessPayment(payment)}
-                          disabled={processing === payment.id}
+                          onClick={() => handleProcessPayment(lot)}
+                          disabled={processing === lot.id}
                           className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {processing === payment.id ? 'Processing...' : 'Pay'}
+                          {processing === lot.id ? 'Processing...' : 'Pay'}
                         </button>
                       )}
                     </td>
@@ -307,31 +239,31 @@ export const PendingCoffeePayments = () => {
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between py-2 border-b border-gray-200">
-                  <span className="text-gray-600">Supplier:</span>
-                  <span className="font-semibold text-gray-900">{confirmPayment.supplier_name}</span>
+                  <span className="text-gray-600">Record ID:</span>
+                  <span className="font-semibold text-gray-900">{confirmPayment.coffee_record_id || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-200">
-                  <span className="text-gray-600">Batch Number:</span>
-                  <span className="font-semibold text-gray-900">{confirmPayment.batch_number}</span>
+                  <span className="text-gray-600">Assessed By:</span>
+                  <span className="font-semibold text-gray-900">{confirmPayment.assessed_by}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-200">
-                  <span className="text-gray-600">Weight:</span>
-                  <span className="font-semibold text-gray-900">{confirmPayment.kilograms.toLocaleString()} kg</span>
+                  <span className="text-gray-600">Quantity:</span>
+                  <span className="font-semibold text-gray-900">{Number(confirmPayment.quantity_kg).toLocaleString()} kg</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600">Total Amount:</span>
-                  <span className="font-semibold text-gray-900">{formatCurrency(confirmPayment.calculated_amount)}</span>
+                  <span className="font-semibold text-gray-900">{formatCurrency(confirmPayment.total_amount_ugx)}</span>
                 </div>
-                {confirmPayment.has_advance && (
+                {confirmPayment.advanceAmount > 0 && (
                   <div className="flex justify-between py-2 border-b border-gray-200">
                     <span className="text-gray-600">Less Advance:</span>
-                    <span className="font-semibold text-orange-700">-{formatCurrency(confirmPayment.advance_amount)}</span>
+                    <span className="font-semibold text-orange-700">-{formatCurrency(confirmPayment.advanceAmount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between py-3 bg-green-50 px-3 rounded">
                   <span className="text-gray-900 font-semibold">Net Payment:</span>
                   <span className="font-bold text-green-700 text-lg">
-                    {formatCurrency(Math.max(0, confirmPayment.calculated_amount - confirmPayment.advance_amount))}
+                    {formatCurrency(confirmPayment.finalAmount)}
                   </span>
                 </div>
               </div>
