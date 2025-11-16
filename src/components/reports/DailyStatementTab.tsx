@@ -217,12 +217,26 @@ export const DailyStatementTab = ({ selectedDate }: DailyStatementProps) => {
         <div id="print-section" ref={printRef} className="bg-white">
           {/* Company Header */}
           <div className="border-b-2 border-gray-300 pb-6 mb-6">
-            <div className="text-center">
-              <h1 className="text-3xl font-bold text-gray-900 mb-1">Great Pearl Coffee Finance</h1>
-              <p className="text-sm text-gray-600">Daily Cash Flow Statement</p>
-              <p className="text-sm text-gray-600">
-                {format(new Date(selectedDate), 'EEEE, MMMM dd, yyyy')}
-              </p>
+            <div className="flex items-start gap-4">
+              <img
+                src="/gpcf-logo.png"
+                alt="Great Pearl Coffee"
+                className="w-20 h-20 object-contain"
+              />
+              <div className="flex-1">
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Great Pearl Coffee</h1>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>www.greatpearlcoffee.com</p>
+                  <p>info@greatpearlcoffee.com</p>
+                  <p>+256 781 121 639</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <h2 className="text-xl font-bold text-gray-900 mb-1">Daily Cash Flow Statement</h2>
+                <p className="text-sm text-gray-600">
+                  {format(new Date(selectedDate), 'EEEE, MMMM dd, yyyy')}
+                </p>
+              </div>
             </div>
           </div>
 
