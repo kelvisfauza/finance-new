@@ -47,18 +47,40 @@ export const CoffeePayments = () => {
     try {
       setLoading(true)
       let query = supabase
-        .from('finance_coffee_lots')
-        .select('*')
+        .from('coffee_records')
+        .select(`
+          *,
+          quality_assessments(final_price, suggested_price, assessed_by, date_assessed)
+        `)
 
-      if (statusFilter) {
-        query = query.eq('finance_status', statusFilter)
+      if (statusFilter === 'READY_FOR_FINANCE') {
+        query = query.eq('status', 'submitted_to_finance')
+      } else if (statusFilter === 'PAID') {
+        query = query.eq('status', 'paid')
+      } else if (statusFilter === 'APPROVED_FOR_PAYMENT') {
+        query = query.eq('status', 'approved')
+      } else if (statusFilter) {
+        query = query.eq('status', statusFilter)
       }
 
       const { data, error } = await query.order('created_at', { ascending: false })
 
       if (error) throw error
 
-      setLots(data || [])
+      const transformed = (data || []).map((record: any) => ({
+        id: record.id,
+        coffee_record_id: record.batch_number,
+        assessed_by: record.quality_assessments?.[0]?.assessed_by || 'N/A',
+        assessed_at: record.quality_assessments?.[0]?.date_assessed || record.date,
+        quantity_kg: Number(record.kilograms),
+        unit_price_ugx: record.quality_assessments?.[0]?.final_price || record.quality_assessments?.[0]?.suggested_price || 0,
+        total_amount_ugx: Number(record.kilograms) * (record.quality_assessments?.[0]?.final_price || record.quality_assessments?.[0]?.suggested_price || 0),
+        finance_status: record.status === 'paid' ? 'PAID' : record.status === 'submitted_to_finance' ? 'READY_FOR_FINANCE' : 'APPROVED_FOR_PAYMENT',
+        created_at: record.created_at,
+        updated_at: record.updated_at
+      }))
+
+      setLots(transformed)
     } catch (error: any) {
       console.error('Error fetching coffee lots:', error)
       alert('Failed to fetch coffee lots')
@@ -99,10 +121,9 @@ export const CoffeePayments = () => {
       setProcessing(true)
 
       const { error: updateError } = await supabase
-        .from('finance_coffee_lots')
+        .from('coffee_records')
         .update({
-          finance_status: 'PAID',
-          finance_notes: notes || null,
+          status: 'paid',
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedLot.id)
@@ -110,14 +131,14 @@ export const CoffeePayments = () => {
       if (updateError) throw updateError
 
       const { error: paymentError } = await supabase
-        .from('payment_records')
+        .from('supplier_payments')
         .insert({
-          payment_type: 'Coffee Payment',
+          coffee_record_id: selectedLot.id,
+          batch_number: selectedLot.coffee_record_id,
           amount: amount,
           payment_method: paymentMethod,
-          reference_number: referenceNumber || null,
+          payment_date: new Date().toISOString(),
           notes: notes || null,
-          coffee_lot_id: selectedLot.id,
           created_at: new Date().toISOString()
         })
 
@@ -126,10 +147,12 @@ export const CoffeePayments = () => {
       const { error: cashError } = await supabase
         .from('finance_cash_transactions')
         .insert({
-          type: 'coffee',
-          amount: amount,
-          description: `Coffee payment - ${selectedLot.quantity_kg}kg @ ${selectedLot.unit_price_ugx} UGX/kg`,
-          reference: selectedLot.id,
+          transaction_type: 'PAYMENT',
+          amount: -amount,
+          reference: selectedLot.coffee_record_id,
+          notes: `Coffee payment - ${selectedLot.quantity_kg}kg @ ${selectedLot.unit_price_ugx} UGX/kg`,
+          status: 'confirmed',
+          confirmed_at: new Date().toISOString(),
           created_at: new Date().toISOString()
         })
 

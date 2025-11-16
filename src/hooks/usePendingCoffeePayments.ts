@@ -3,18 +3,16 @@ import { supabase } from '../lib/supabaseClient'
 
 export interface PendingCoffeeLot {
   id: string
-  coffee_record_id: string
-  supplier_id: string
-  assessed_by: string
-  assessed_at: string
-  quality_json: any
-  unit_price_ugx: number
-  quantity_kg: number
-  total_amount_ugx: number
-  finance_status: string
-  finance_notes?: string
+  batch_number: string
+  supplier_name: string
+  supplier_id?: string
+  kilograms: number
+  final_price?: number
+  suggested_price?: number
+  assessed_by?: string
+  status: string
+  date: string
   created_at: string
-  updated_at: string
 }
 
 export function usePendingCoffeePayments() {
@@ -22,9 +20,12 @@ export function usePendingCoffeePayments() {
     queryKey: ['pending-coffee-payments'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('finance_coffee_lots')
-        .select('*')
-        .eq('finance_status', 'READY_FOR_FINANCE')
+        .from('coffee_records')
+        .select(`
+          *,
+          quality_assessments(final_price, suggested_price, assessed_by)
+        `)
+        .in('status', ['submitted_to_finance'])
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -32,7 +33,21 @@ export function usePendingCoffeePayments() {
         throw error
       }
 
-      return (data || []) as PendingCoffeeLot[]
+      const transformed = (data || []).map((record: any) => ({
+        id: record.id,
+        batch_number: record.batch_number,
+        supplier_name: record.supplier_name,
+        supplier_id: record.supplier_id,
+        kilograms: Number(record.kilograms),
+        final_price: record.quality_assessments?.[0]?.final_price || 0,
+        suggested_price: record.quality_assessments?.[0]?.suggested_price || 0,
+        assessed_by: record.quality_assessments?.[0]?.assessed_by,
+        status: record.status,
+        date: record.date,
+        created_at: record.created_at,
+      }))
+
+      return transformed as PendingCoffeeLot[]
     },
   })
 }

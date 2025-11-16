@@ -12,12 +12,6 @@ export const PendingCoffeePayments = () => {
   const [supplierAdvances, setSupplierAdvances] = useState<Record<string, number>>({})
 
   useEffect(() => {
-    console.log('PendingCoffeePayments - lots:', lots)
-    console.log('PendingCoffeePayments - isLoading:', isLoading)
-    console.log('PendingCoffeePayments - error:', error)
-  }, [lots, isLoading, error])
-
-  useEffect(() => {
     fetchCashBalanceAndAdvances()
   }, [])
 
@@ -52,14 +46,15 @@ export const PendingCoffeePayments = () => {
   }
 
   const handleProcessPayment = (lot: any) => {
-    const advanceAmount = supplierAdvances[lot.supplier_id] || 0
-    const finalAmount = Math.max(0, lot.total_amount_ugx - advanceAmount)
+    const totalAmount = lot.kilograms * (lot.final_price || lot.suggested_price || 0)
+    const advanceAmount = lot.supplier_id ? (supplierAdvances[lot.supplier_id] || 0) : 0
+    const finalAmount = Math.max(0, totalAmount - advanceAmount)
 
     if (cashBalance < finalAmount) {
       return
     }
 
-    setConfirmPayment({ ...lot, advanceAmount, finalAmount })
+    setConfirmPayment({ ...lot, totalAmount, advanceAmount, finalAmount })
   }
 
   const confirmProcessPayment = async () => {
@@ -75,14 +70,27 @@ export const PendingCoffeePayments = () => {
       const processedBy = user?.email || 'Finance'
 
       const { error: updateError } = await supabase
-        .from('finance_coffee_lots')
+        .from('coffee_records')
         .update({
-          finance_status: 'PAID',
-          finance_notes: `Paid ${lot.finalAmount} UGX on ${new Date().toISOString()}`
+          status: 'paid'
         })
         .eq('id', lot.id)
 
       if (updateError) throw updateError
+
+      const { error: paymentError } = await supabase
+        .from('supplier_payments')
+        .insert({
+          supplier_id: lot.supplier_id,
+          coffee_record_id: lot.id,
+          batch_number: lot.batch_number,
+          amount: lot.finalAmount,
+          payment_method: 'cash',
+          payment_date: new Date().toISOString(),
+          created_at: new Date().toISOString()
+        })
+
+      if (paymentError) throw paymentError
 
       if (lot.advanceAmount > 0 && lot.supplier_id) {
         const { error: advanceError } = await supabase
@@ -102,8 +110,8 @@ export const PendingCoffeePayments = () => {
           transaction_type: 'PAYMENT',
           amount: -lot.finalAmount,
           balance_after: newBalance,
-          reference: lot.coffee_record_id || `Coffee lot ${lot.id}`,
-          notes: `Coffee payment for ${lot.quantity_kg} kg @ ${lot.unit_price_ugx} UGX/kg`,
+          reference: lot.batch_number,
+          notes: `Coffee payment for ${lot.supplier_name} - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`,
           created_by: processedBy,
           status: 'confirmed',
           confirmed_by: processedBy,
@@ -180,9 +188,9 @@ export const PendingCoffeePayments = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Record ID</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Assessed By</th>
-                <th className="text-right py-3 px-4 font-semibold text-gray-700">Quantity (kg)</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Batch #</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Supplier</th>
+                <th className="text-right py-3 px-4 font-semibold text-gray-700">Weight (kg)</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Price/kg</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Total</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Advance</th>
@@ -192,20 +200,22 @@ export const PendingCoffeePayments = () => {
             </thead>
             <tbody>
               {lots.map((lot) => {
-                const advanceAmount = supplierAdvances[lot.supplier_id] || 0
-                const finalAmount = Math.max(0, lot.total_amount_ugx - advanceAmount)
+                const unitPrice = lot.final_price || lot.suggested_price || 0
+                const totalAmount = lot.kilograms * unitPrice
+                const advanceAmount = lot.supplier_id ? (supplierAdvances[lot.supplier_id] || 0) : 0
+                const finalAmount = Math.max(0, totalAmount - advanceAmount)
                 const canPay = cashBalance >= finalAmount
 
                 return (
                   <tr key={lot.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 font-medium">{lot.coffee_record_id || 'N/A'}</td>
-                    <td className="py-3 px-4">{lot.assessed_by}</td>
-                    <td className="py-3 px-4 text-right">{Number(lot.quantity_kg).toLocaleString()}</td>
+                    <td className="py-3 px-4 font-medium">{lot.batch_number}</td>
+                    <td className="py-3 px-4">{lot.supplier_name}</td>
+                    <td className="py-3 px-4 text-right">{Number(lot.kilograms).toLocaleString()}</td>
                     <td className="py-3 px-4 text-right">
-                      {formatCurrency(lot.unit_price_ugx)}
+                      {formatCurrency(unitPrice)}
                     </td>
                     <td className="py-3 px-4 text-right font-semibold">
-                      {formatCurrency(lot.total_amount_ugx)}
+                      {formatCurrency(totalAmount)}
                     </td>
                     <td className="py-3 px-4 text-right text-orange-700">
                       {advanceAmount > 0 ? `-${formatCurrency(advanceAmount)}` : '-'}
@@ -245,48 +255,46 @@ export const PendingCoffeePayments = () => {
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between py-2 border-b border-gray-200">
-                  <span className="text-gray-600">Record ID:</span>
-                  <span className="font-semibold text-gray-900">{confirmPayment.coffee_record_id || 'N/A'}</span>
+                  <span className="text-gray-600">Batch Number:</span>
+                  <span className="font-semibold text-gray-900">{confirmPayment.batch_number}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-200">
-                  <span className="text-gray-600">Assessed By:</span>
-                  <span className="font-semibold text-gray-900">{confirmPayment.assessed_by}</span>
+                  <span className="text-gray-600">Supplier:</span>
+                  <span className="font-semibold text-gray-900">{confirmPayment.supplier_name}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600">Quantity:</span>
-                  <span className="font-semibold text-gray-900">{Number(confirmPayment.quantity_kg).toLocaleString()} kg</span>
+                  <span className="font-semibold text-gray-900">{confirmPayment.kilograms} kg</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600">Total Amount:</span>
-                  <span className="font-semibold text-gray-900">{formatCurrency(confirmPayment.total_amount_ugx)}</span>
+                  <span className="font-semibold text-gray-900">{formatCurrency(confirmPayment.totalAmount)}</span>
                 </div>
                 {confirmPayment.advanceAmount > 0 && (
                   <div className="flex justify-between py-2 border-b border-gray-200">
-                    <span className="text-gray-600">Less Advance:</span>
+                    <span className="text-gray-600">Less: Advance:</span>
                     <span className="font-semibold text-orange-700">-{formatCurrency(confirmPayment.advanceAmount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between py-3 bg-green-50 px-3 rounded">
+                <div className="flex justify-between py-2 bg-green-50 px-4 rounded-lg">
                   <span className="text-gray-900 font-semibold">Net Payment:</span>
-                  <span className="font-bold text-green-700 text-lg">
-                    {formatCurrency(confirmPayment.finalAmount)}
-                  </span>
+                  <span className="text-xl font-bold text-green-700">{formatCurrency(confirmPayment.finalAmount)}</span>
                 </div>
               </div>
 
               <div className="flex space-x-3">
                 <button
                   onClick={() => setConfirmPayment(null)}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmProcessPayment}
                   disabled={processing !== null}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {processing ? 'Processing...' : 'Confirm Payment'}
+                  Confirm Payment
                 </button>
               </div>
             </div>
