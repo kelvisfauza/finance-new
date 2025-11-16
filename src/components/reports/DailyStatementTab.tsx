@@ -103,14 +103,15 @@ export const DailyStatementTab = ({ selectedDate }: DailyStatementProps) => {
         })
       })
 
-      approvalPayments?.forEach((a: any) => {
+      approvalPayments?.forEach((a: any, index: number) => {
+        const refNumber = `REF-${format(new Date(a.finance_approved_at), 'yyyyMMdd')}-${String(index + 1).padStart(3, '0')}`
         cashOutTransactions.push({
           id: a.id,
           type: a.type || 'Payment',
           description: a.description || `${a.type} Payment - ${a.department || 'General'}`,
           amount: Number(a.amount),
           timestamp: a.finance_approved_at,
-          reference: a.id
+          reference: refNumber
         })
       })
 
@@ -118,10 +119,10 @@ export const DailyStatementTab = ({ selectedDate }: DailyStatementProps) => {
         cashOutTransactions.push({
           id: c.id,
           type: 'Coffee Payment',
-          description: `Coffee Payment - Batch ${c.batch_number}`,
+          description: `Coffee Payment${c.reference ? ' - ' + c.reference : ''}`,
           amount: Number(c.amount_paid_ugx),
           timestamp: c.approved_at,
-          reference: c.batch_number
+          reference: c.reference
         })
       })
 
