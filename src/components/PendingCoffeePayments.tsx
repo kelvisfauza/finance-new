@@ -12,6 +12,12 @@ export const PendingCoffeePayments = () => {
   const [supplierAdvances, setSupplierAdvances] = useState<Record<string, number>>({})
 
   useEffect(() => {
+    console.log('PendingCoffeePayments - lots:', lots)
+    console.log('PendingCoffeePayments - isLoading:', isLoading)
+    console.log('PendingCoffeePayments - error:', error)
+  }, [lots, isLoading, error])
+
+  useEffect(() => {
     fetchCashBalanceAndAdvances()
   }, [])
 
