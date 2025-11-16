@@ -6,6 +6,7 @@ export interface FinanceStats {
   totalExpenses: number
   totalHRSalary: number
   totalRequisitions: number
+  totalCoffeePayments: number
 }
 
 export interface MonthlyData {
@@ -13,13 +14,15 @@ export interface MonthlyData {
   expenses: number
   hrSalary: number
   requisitions: number
+  coffeePayments: number
 }
 
 export const useFinanceReports = (filters: ReportFilters) => {
   const [stats, setStats] = useState<FinanceStats>({
     totalExpenses: 0,
     totalHRSalary: 0,
-    totalRequisitions: 0
+    totalRequisitions: 0,
+    totalCoffeePayments: 0
   })
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([])
   const [loading, setLoading] = useState(true)
@@ -75,9 +78,26 @@ export const useFinanceReports = (filters: ReportFilters) => {
 
       if (expenseError) throw expenseError
 
+      let coffeePaymentQuery = supabase
+        .from('supplier_payments')
+        .select('amount_paid_ugx, approved_at, status')
+        .eq('status', 'POSTED')
+
+      if (filters.dateFrom) {
+        coffeePaymentQuery = coffeePaymentQuery.gte('approved_at', filters.dateFrom)
+      }
+      if (filters.dateTo) {
+        coffeePaymentQuery = coffeePaymentQuery.lte('approved_at', filters.dateTo)
+      }
+
+      const { data: coffeePaymentData, error: coffeePaymentError } = await coffeePaymentQuery
+
+      if (coffeePaymentError) throw coffeePaymentError
+
       let totalExpenses = 0
       let totalHRSalary = 0
       let totalRequisitions = 0
+      let totalCoffeePayments = 0
 
       approvalData?.forEach((item: any) => {
         const amount = Number(item.amount) || 0
@@ -104,10 +124,15 @@ export const useFinanceReports = (filters: ReportFilters) => {
         totalExpenses += Number(item.amount) || 0
       })
 
+      coffeePaymentData?.forEach((item: any) => {
+        totalCoffeePayments += Number(item.amount_paid_ugx) || 0
+      })
+
       setStats({
         totalExpenses,
         totalHRSalary,
-        totalRequisitions
+        totalRequisitions,
+        totalCoffeePayments
       })
 
       const monthlyMap = new Map<string, MonthlyData>()
@@ -118,7 +143,7 @@ export const useFinanceReports = (filters: ReportFilters) => {
 
         const monthKey = date.substring(0, 7)
         if (!monthlyMap.has(monthKey)) {
-          monthlyMap.set(monthKey, { month: monthKey, expenses: 0, hrSalary: 0, requisitions: 0 })
+          monthlyMap.set(monthKey, { month: monthKey, expenses: 0, hrSalary: 0, requisitions: 0, coffeePayments: 0 })
         }
 
         const monthData = monthlyMap.get(monthKey)!
@@ -145,9 +170,18 @@ export const useFinanceReports = (filters: ReportFilters) => {
       expenseData?.forEach((item: any) => {
         const monthKey = item.date.substring(0, 7)
         if (!monthlyMap.has(monthKey)) {
-          monthlyMap.set(monthKey, { month: monthKey, expenses: 0, hrSalary: 0, requisitions: 0 })
+          monthlyMap.set(monthKey, { month: monthKey, expenses: 0, hrSalary: 0, requisitions: 0, coffeePayments: 0 })
         }
         monthlyMap.get(monthKey)!.expenses += Number(item.amount) || 0
+      })
+
+      coffeePaymentData?.forEach((item: any) => {
+        if (!item.approved_at) return
+        const monthKey = item.approved_at.substring(0, 7)
+        if (!monthlyMap.has(monthKey)) {
+          monthlyMap.set(monthKey, { month: monthKey, expenses: 0, hrSalary: 0, requisitions: 0, coffeePayments: 0 })
+        }
+        monthlyMap.get(monthKey)!.coffeePayments += Number(item.amount_paid_ugx) || 0
       })
 
       const sortedMonthly = Array.from(monthlyMap.values())

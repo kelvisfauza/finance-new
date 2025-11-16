@@ -14,8 +14,8 @@ export const OverviewTab = ({ stats, monthlyData, loading }: OverviewTabProps) =
   if (loading) {
     return (
       <div className="animate-pulse space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map(i => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map(i => (
             <div key={i} className="bg-gray-200 h-32 rounded-lg"></div>
           ))}
         </div>
@@ -28,12 +28,13 @@ export const OverviewTab = ({ stats, monthlyData, loading }: OverviewTabProps) =
     month: format(new Date(item.month + '-01'), 'MMM yyyy'),
     Expenses: item.expenses,
     'HR/Salary': item.hrSalary,
-    Requisitions: item.requisitions
+    Requisitions: item.requisitions,
+    'Coffee Payments': item.coffeePayments
   }))
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg shadow-sm border border-blue-200 p-6">
           <div className="flex items-center justify-between mb-2">
             <div className="p-2 bg-blue-500 rounded-lg">
@@ -66,6 +67,17 @@ export const OverviewTab = ({ stats, monthlyData, loading }: OverviewTabProps) =
           <h3 className="text-sm font-medium text-gray-600 mb-1">Total Requisitions</h3>
           <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalRequisitions)}</p>
         </div>
+
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg shadow-sm border border-orange-200 p-6">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 bg-orange-500 rounded-lg">
+              <DollarSign className="w-6 h-6 text-white" />
+            </div>
+            <TrendingUp className="w-5 h-5 text-orange-600" />
+          </div>
+          <h3 className="text-sm font-medium text-gray-600 mb-1">Total Coffee Payments</h3>
+          <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.totalCoffeePayments)}</p>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -80,6 +92,7 @@ export const OverviewTab = ({ stats, monthlyData, loading }: OverviewTabProps) =
             <Bar dataKey="Expenses" fill="#3b82f6" />
             <Bar dataKey="HR/Salary" fill="#10b981" />
             <Bar dataKey="Requisitions" fill="#f59e0b" />
+            <Bar dataKey="Coffee Payments" fill="#f97316" />
           </BarChart>
         </ResponsiveContainer>
       </div>
