@@ -203,19 +203,39 @@ export const CoffeePayments = () => {
 
       if (paymentError) throw paymentError
 
+      const { data: balanceData } = await supabase
+        .from('finance_cash_balance')
+        .select('current_balance')
+        .maybeSingle()
+
+      const currentBalance = balanceData?.current_balance || 0
+      const newBalance = currentBalance - amount
+
       const { error: cashError } = await supabase
         .from('finance_cash_transactions')
         .insert({
           transaction_type: 'PAYMENT',
           amount: -amount,
+          balance_after: newBalance,
           reference: selectedLot.coffee_record_id,
           notes: `Coffee payment - ${selectedLot.quantity_kg}kg @ ${selectedLot.unit_price_ugx} UGX/kg`,
           status: 'confirmed',
           confirmed_at: new Date().toISOString(),
-          created_at: new Date().toISOString()
+          confirmed_by: processedBy,
+          created_by: processedBy
         })
 
       if (cashError) throw cashError
+
+      const { error: balanceError } = await supabase
+        .from('finance_cash_balance')
+        .upsert({
+          current_balance: newBalance,
+          last_updated: new Date().toISOString(),
+          updated_by: processedBy
+        })
+
+      if (balanceError) throw balanceError
 
       alert('Coffee payment processed successfully')
       setShowPaymentModal(false)
