@@ -154,10 +154,41 @@ export const CoffeePayments = () => {
       const { data: { user } } = await supabase.auth.getUser()
       const processedBy = user?.email || 'Finance'
 
+      let financeLotId: string
+
+      const { data: existingLot } = await supabase
+        .from('finance_coffee_lots')
+        .select('id')
+        .eq('coffee_record_id', selectedLot.id)
+        .maybeSingle()
+
+      if (existingLot) {
+        financeLotId = existingLot.id
+      } else {
+        const { data: newLot, error: lotError } = await supabase
+          .from('finance_coffee_lots')
+          .insert({
+            coffee_record_id: selectedLot.id,
+            supplier_id: selectedLot.supplier_id,
+            assessed_by: selectedLot.assessed_by,
+            assessed_at: selectedLot.assessed_at,
+            quality_json: {},
+            unit_price_ugx: selectedLot.unit_price_ugx,
+            quantity_kg: selectedLot.quantity_kg,
+            total_amount_ugx: selectedLot.total_amount_ugx,
+            finance_status: 'PAID'
+          })
+          .select('id')
+          .single()
+
+        if (lotError || !newLot) throw lotError || new Error('Failed to create finance lot')
+        financeLotId = newLot.id
+      }
+
       const { error: paymentError } = await supabase
         .from('supplier_payments')
         .insert({
-          lot_id: selectedLot.id,
+          lot_id: financeLotId,
           supplier_id: selectedLot.supplier_id,
           method: paymentMethod.toUpperCase(),
           status: 'POSTED',
