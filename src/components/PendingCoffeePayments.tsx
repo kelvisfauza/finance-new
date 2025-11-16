@@ -127,7 +127,6 @@ export const PendingCoffeePayments = () => {
             quality_json: {},
             unit_price_ugx: lot.final_price || lot.suggested_price || 0,
             quantity_kg: lot.kilograms,
-            total_amount_ugx: lot.totalAmount,
             finance_status: 'PAID'
           })
           .select('id')

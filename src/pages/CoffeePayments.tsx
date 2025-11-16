@@ -175,7 +175,6 @@ export const CoffeePayments = () => {
             quality_json: {},
             unit_price_ugx: selectedLot.unit_price_ugx,
             quantity_kg: selectedLot.quantity_kg,
-            total_amount_ugx: selectedLot.total_amount_ugx,
             finance_status: 'PAID'
           })
           .select('id')
