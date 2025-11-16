@@ -31,7 +31,18 @@ export const useMarketPrices = () => {
       .onSnapshot(
         (doc) => {
           if (doc.exists) {
-            const data = doc.data() as MarketPrices
+            const data = doc.data() as any
+
+            let lastUpdatedStr: string | undefined
+            const timestamp = data.lastUpdated || data.updatedAt
+            if (timestamp) {
+              if (typeof timestamp === 'object' && 'toDate' in timestamp) {
+                lastUpdatedStr = timestamp.toDate().toISOString()
+              } else if (typeof timestamp === 'string') {
+                lastUpdatedStr = timestamp
+              }
+            }
+
             setPrices({
               drugarLocal: data.drugarLocal || 0,
               wugarLocal: data.wugarLocal || 0,
@@ -39,7 +50,7 @@ export const useMarketPrices = () => {
               iceArabica: data.iceArabica || 0,
               robusta: data.robusta || 0,
               exchangeRate: data.exchangeRate || 0,
-              lastUpdated: data.lastUpdated || data.updatedAt
+              lastUpdated: lastUpdatedStr
             })
             setError(null)
           } else {
