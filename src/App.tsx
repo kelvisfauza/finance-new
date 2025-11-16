@@ -12,6 +12,7 @@ import { Requisitions } from './pages/Requisitions'
 import { HRPayments } from './pages/HRPayments'
 import { Reports } from './pages/Reports'
 import { ReportsNew } from './pages/ReportsNew'
+import { FinanceReports } from './pages/FinanceReports'
 import { Settings } from './pages/Settings'
 
 function App() {
@@ -36,8 +37,9 @@ function App() {
             <Route path="expenses" element={<Expenses />} />
             <Route path="requisitions" element={<Requisitions />} />
             <Route path="hr-payments" element={<HRPayments />} />
-            <Route path="reports" element={<ReportsNew />} />
-            <Route path="reports-old" element={<Reports />} />
+            <Route path="reports" element={<FinanceReports />} />
+            <Route path="reports-old" element={<ReportsNew />} />
+            <Route path="reports-legacy" element={<Reports />} />
             <Route path="reports/:reportType" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
           </Route>
