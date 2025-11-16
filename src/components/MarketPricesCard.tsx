@@ -69,7 +69,13 @@ export const MarketPricesCard = () => {
         <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-500">
           <Clock className="w-3 h-3" />
           <span>
-            Last updated: {format(new Date(prices.lastUpdated), 'MMM d, yyyy h:mm a')}
+            Last updated: {(() => {
+              try {
+                return format(new Date(prices.lastUpdated), 'MMM d, yyyy h:mm a')
+              } catch {
+                return prices.lastUpdated
+              }
+            })()}
           </span>
         </div>
       )}

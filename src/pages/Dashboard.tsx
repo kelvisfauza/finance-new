@@ -140,14 +140,18 @@ export const Dashboard = () => {
 
   const fetchDailyData = async (monthKey: string) => {
     try {
-      const startDate = `${monthKey}-01T00:00:00Z`
-      const endDate = `${monthKey}-31T23:59:59Z`
+      const [year, month] = monthKey.split('-').map(Number)
+      const startDate = new Date(year, month - 1, 1)
+      const endDate = new Date(year, month, 0, 23, 59, 59)
+
+      const startDateStr = startDate.toISOString()
+      const endDateStr = endDate.toISOString()
 
       const { data, error } = await supabase
         .from('finance_cash_transactions')
         .select('created_at, transaction_type, amount')
-        .gte('created_at', startDate)
-        .lte('created_at', endDate)
+        .gte('created_at', startDateStr)
+        .lte('created_at', endDateStr)
         .order('created_at', { ascending: true })
 
       if (error) throw error
