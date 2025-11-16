@@ -81,9 +81,11 @@ export const HRSalaryTab = ({ filters }: HRSalaryTabProps) => {
         }
       })
 
-      salaryRecords.sort((a, b) =>
-        new Date(b.financeApprovedAt).getTime() - new Date(a.financeApprovedAt).getTime()
-      )
+      salaryRecords.sort((a, b) => {
+        const dateA = a.financeApprovedAt ? new Date(a.financeApprovedAt).getTime() : 0
+        const dateB = b.financeApprovedAt ? new Date(b.financeApprovedAt).getTime() : 0
+        return dateB - dateA
+      })
 
       const total = salaryRecords.reduce((sum, rec) => sum + rec.amount, 0)
 
@@ -179,12 +181,14 @@ export const HRSalaryTab = ({ filters }: HRSalaryTabProps) => {
                     {formatCurrency(record.amount)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(new Date(record.dateRequested), 'MMM d, yyyy')}
+                    {record.dateRequested ? format(new Date(record.dateRequested), 'MMM d, yyyy') : 'N/A'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     <div>
-                      <div>{record.financeApprovedBy}</div>
-                      <div className="text-xs">{format(new Date(record.financeApprovedAt), 'MMM d, yyyy')}</div>
+                      <div>{record.financeApprovedBy || 'N/A'}</div>
+                      <div className="text-xs">
+                        {record.financeApprovedAt ? format(new Date(record.financeApprovedAt), 'MMM d, yyyy') : 'N/A'}
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

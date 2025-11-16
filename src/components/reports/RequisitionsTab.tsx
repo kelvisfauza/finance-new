@@ -85,9 +85,11 @@ export const RequisitionsTab = ({ filters }: RequisitionsTabProps) => {
         }
       })
 
-      requisitionRecords.sort((a, b) =>
-        new Date(b.financeApprovedAt).getTime() - new Date(a.financeApprovedAt).getTime()
-      )
+      requisitionRecords.sort((a, b) => {
+        const dateA = a.financeApprovedAt ? new Date(a.financeApprovedAt).getTime() : 0
+        const dateB = b.financeApprovedAt ? new Date(b.financeApprovedAt).getTime() : 0
+        return dateB - dateA
+      })
 
       const total = requisitionRecords.reduce((sum, req) => sum + req.amount, 0)
 
@@ -180,7 +182,7 @@ export const RequisitionsTab = ({ filters }: RequisitionsTabProps) => {
               {requisitions.map((req) => (
                 <tr key={req.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {format(new Date(req.dateRequested), 'MMM d, yyyy')}
+                    {req.dateRequested ? format(new Date(req.dateRequested), 'MMM d, yyyy') : 'N/A'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {req.title}
@@ -212,8 +214,10 @@ export const RequisitionsTab = ({ filters }: RequisitionsTabProps) => {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     <div>
-                      <div>{req.financeApprovedBy}</div>
-                      <div className="text-xs">{format(new Date(req.financeApprovedAt), 'MMM d, yyyy')}</div>
+                      <div>{req.financeApprovedBy || 'N/A'}</div>
+                      <div className="text-xs">
+                        {req.financeApprovedAt ? format(new Date(req.financeApprovedAt), 'MMM d, yyyy') : 'N/A'}
+                      </div>
                     </div>
                   </td>
                 </tr>

@@ -109,7 +109,11 @@ export const ExpensesTab = ({ filters }: ExpensesTabProps) => {
         }
       })
 
-      combinedExpenses.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      combinedExpenses.sort((a, b) => {
+        const dateA = a.date ? new Date(a.date).getTime() : 0
+        const dateB = b.date ? new Date(b.date).getTime() : 0
+        return dateB - dateA
+      })
 
       const total = combinedExpenses.reduce((sum, exp) => sum + exp.amount, 0)
       const rejected = combinedExpenses.filter(exp => exp.status === 'Rejected').length
@@ -196,7 +200,7 @@ export const ExpensesTab = ({ filters }: ExpensesTabProps) => {
               {expenses.map((expense) => (
                 <tr key={expense.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {format(new Date(expense.date), 'MMM d, yyyy')}
+                    {expense.date ? format(new Date(expense.date), 'MMM d, yyyy') : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {expense.category}
