@@ -5,10 +5,11 @@ import { OverviewTab } from '../components/reports/OverviewTab'
 import { ExpensesTab } from '../components/reports/ExpensesTab'
 import { HRSalaryTab } from '../components/reports/HRSalaryTab'
 import { RequisitionsTab } from '../components/reports/RequisitionsTab'
+import { DailyStatementTab } from '../components/reports/DailyStatementTab'
 import { useFinanceReports } from '../hooks/useFinanceReports'
 import { supabase } from '../lib/supabaseClient'
 
-type TabType = 'overview' | 'expenses' | 'hr-salary' | 'requisitions'
+type TabType = 'overview' | 'expenses' | 'hr-salary' | 'requisitions' | 'daily-statement'
 
 export const FinanceReports = () => {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -46,6 +47,7 @@ export const FinanceReports = () => {
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
+    { id: 'daily-statement', label: 'Daily Statement' },
     { id: 'expenses', label: 'Expenses' },
     { id: 'hr-salary', label: 'HR / Salary' },
     { id: 'requisitions', label: 'Requisitions' }
@@ -89,6 +91,9 @@ export const FinanceReports = () => {
         <div className="p-6">
           {activeTab === 'overview' && (
             <OverviewTab stats={stats} monthlyData={monthlyData} loading={loading} />
+          )}
+          {activeTab === 'daily-statement' && (
+            <DailyStatementTab selectedDate={filters.dateFrom || new Date().toISOString().split('T')[0]} />
           )}
           {activeTab === 'expenses' && <ExpensesTab filters={filters} />}
           {activeTab === 'hr-salary' && <HRSalaryTab filters={filters} />}
