@@ -17,7 +17,7 @@ export const PendingCoffeePayments = () => {
 
   const fetchCashBalanceAndAdvances = async () => {
     try {
-      const [balanceResult, advancesResult] = await Promise.all([
+      const [balanceResult, transactionsResult, advancesResult] = await Promise.all([
         supabase
           .from('finance_cash_balance')
           .select('current_balance')
@@ -25,12 +25,31 @@ export const PendingCoffeePayments = () => {
           .limit(1)
           .maybeSingle(),
         supabase
+          .from('finance_cash_transactions')
+          .select('transaction_type, amount, status'),
+        supabase
           .from('supplier_advances')
           .select('supplier_id, amount_ugx, outstanding_ugx, is_closed')
           .eq('is_closed', false)
       ])
 
-      setCashBalance(balanceResult.data?.current_balance || 0)
+      let netBalance = 0
+
+      if (balanceResult.data?.current_balance !== undefined) {
+        netBalance = Number(balanceResult.data.current_balance)
+      } else if (transactionsResult.data) {
+        const totalCashIn = transactionsResult.data
+          .filter((t: any) => ['DEPOSIT', 'ADVANCE_RECOVERY'].includes(t.transaction_type) && t.status === 'confirmed')
+          .reduce((sum: number, t: any) => sum + Math.abs(Number(t.amount)), 0)
+
+        const totalCashOut = transactionsResult.data
+          .filter((t: any) => ['PAYMENT', 'EXPENSE'].includes(t.transaction_type) && t.status === 'confirmed')
+          .reduce((sum: number, t: any) => sum + Math.abs(Number(t.amount)), 0)
+
+        netBalance = totalCashIn - totalCashOut
+      }
+
+      setCashBalance(netBalance)
 
       if (advancesResult.data) {
         const advancesMap: Record<string, number> = {}
@@ -50,11 +69,20 @@ export const PendingCoffeePayments = () => {
     const advanceAmount = lot.supplier_id ? (supplierAdvances[lot.supplier_id] || 0) : 0
     const finalAmount = Math.max(0, totalAmount - advanceAmount)
 
-    if (cashBalance < finalAmount) {
-      return
-    }
+    const netBalance = cashBalance
+    const availableCash = Math.max(0, netBalance)
+    const newNetBalance = netBalance - finalAmount
+    const willBeOverdraft = newNetBalance < 0
+    const overdraftAmount = willBeOverdraft ? Math.abs(newNetBalance) : 0
 
-    setConfirmPayment({ ...lot, totalAmount, advanceAmount, finalAmount })
+    setConfirmPayment({
+      ...lot,
+      totalAmount,
+      advanceAmount,
+      finalAmount,
+      willBeOverdraft,
+      overdraftAmount
+    })
   }
 
   const confirmProcessPayment = async () => {
@@ -172,8 +200,12 @@ export const PendingCoffeePayments = () => {
           Pending Coffee Payments
         </h3>
         <div className="text-right">
-          <p className="text-sm text-gray-600">Available Cash</p>
-          <p className="text-lg font-bold text-green-700">{formatCurrency(cashBalance)}</p>
+          <p className="text-sm text-gray-600">
+            {cashBalance >= 0 ? 'Available Cash' : 'Overdraft'}
+          </p>
+          <p className={`text-lg font-bold ${cashBalance >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+            {formatCurrency(Math.abs(cashBalance))}
+          </p>
         </div>
       </div>
 
@@ -204,7 +236,6 @@ export const PendingCoffeePayments = () => {
                 const totalAmount = lot.kilograms * unitPrice
                 const advanceAmount = lot.supplier_id ? (supplierAdvances[lot.supplier_id] || 0) : 0
                 const finalAmount = Math.max(0, totalAmount - advanceAmount)
-                const canPay = cashBalance >= finalAmount
 
                 return (
                   <tr key={lot.id} className="border-b border-gray-100 hover:bg-gray-50">
@@ -224,20 +255,13 @@ export const PendingCoffeePayments = () => {
                       {formatCurrency(finalAmount)}
                     </td>
                     <td className="py-3 px-4 text-center">
-                      {!canPay ? (
-                        <div className="flex items-center justify-center text-red-600">
-                          <AlertTriangle className="w-4 h-4 mr-1" />
-                          <span className="text-xs">Insufficient funds</span>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => handleProcessPayment(lot)}
-                          disabled={processing === lot.id}
-                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {processing === lot.id ? 'Processing...' : 'Pay'}
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleProcessPayment(lot)}
+                        disabled={processing === lot.id}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {processing === lot.id ? 'Processing...' : 'Pay'}
+                      </button>
                     </td>
                   </tr>
                 )
@@ -280,6 +304,19 @@ export const PendingCoffeePayments = () => {
                   <span className="text-gray-900 font-semibold">Net Payment:</span>
                   <span className="text-xl font-bold text-green-700">{formatCurrency(confirmPayment.finalAmount)}</span>
                 </div>
+                {confirmPayment.willBeOverdraft && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mt-4">
+                    <div className="flex items-start">
+                      <AlertTriangle className="w-5 h-5 text-orange-600 mr-2 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-orange-900">Overdraft Warning</p>
+                        <p className="text-sm text-orange-700 mt-1">
+                          This payment will push you into overdraft of {formatCurrency(confirmPayment.overdraftAmount)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex space-x-3">

@@ -41,6 +41,7 @@ export const useFinanceStats = () => {
       const [
         coffeePayments,
         cashBalance,
+        cashTransactions,
         advances,
         expenses,
         todayTransactions
@@ -58,6 +59,10 @@ export const useFinanceStats = () => {
           .maybeSingle(),
 
         supabase
+          .from('finance_cash_transactions')
+          .select('transaction_type, amount, status'),
+
+        supabase
           .from('finance_advances')
           .select('amount')
           .eq('status', 'Pending'),
@@ -73,9 +78,26 @@ export const useFinanceStats = () => {
           .gte('date', today)
       ])
 
+      let netBalance = 0
+
+      if (cashBalance.data?.current_balance !== undefined) {
+        netBalance = Number(cashBalance.data.current_balance)
+      } else if (cashTransactions.data) {
+        const totalCashIn = cashTransactions.data
+          .filter((t: any) => ['DEPOSIT', 'ADVANCE_RECOVERY'].includes(t.transaction_type) && t.status === 'confirmed')
+          .reduce((sum: number, t: any) => sum + Math.abs(Number(t.amount)), 0)
+
+        const totalCashOut = cashTransactions.data
+          .filter((t: any) => ['PAYMENT', 'EXPENSE'].includes(t.transaction_type) && t.status === 'confirmed')
+          .reduce((sum: number, t: any) => sum + Math.abs(Number(t.amount)), 0)
+
+        netBalance = totalCashIn - totalCashOut
+      }
+
+      const availableCash = Math.max(0, netBalance)
+      const advanceAmount = netBalance < 0 ? Math.abs(netBalance) : 0
+
       const pendingCoffeeAmount = coffeePayments.data?.reduce((sum: number, item: any) => sum + Number(item.amount), 0) || 0
-      const availableCash = Number(cashBalance.data?.current_balance || 0)
-      const advanceAmount = advances.data?.reduce((sum: number, item: any) => sum + Number(item.amount), 0) || 0
       const pendingExpenseAmount = expenses.data?.reduce((sum: number, item: any) => sum + Number(item.amount), 0) || 0
       const completedTodayAmount = todayTransactions.data?.reduce((sum: number, item: any) => sum + Number(item.amount), 0) || 0
 
@@ -84,7 +106,7 @@ export const useFinanceStats = () => {
         pendingCoffeeAmount,
         availableCash,
         advanceAmount,
-        netCash: availableCash - advanceAmount,
+        netCash: netBalance,
         pendingExpenseRequests: expenses.data?.length || 0,
         pendingExpenseAmount,
         completedToday: todayTransactions.data?.length || 0,
