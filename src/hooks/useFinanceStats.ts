@@ -54,9 +54,7 @@ export const useFinanceStats = () => {
         supabase
           .from('finance_cash_balance')
           .select('current_balance')
-          .order('last_updated', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+          .single(),
 
         supabase
           .from('finance_cash_transactions')

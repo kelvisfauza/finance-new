@@ -21,9 +21,7 @@ export const PendingCoffeePayments = () => {
         supabase
           .from('finance_cash_balance')
           .select('current_balance')
-          .order('last_updated', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+          .single(),
         supabase
           .from('finance_cash_transactions')
           .select('transaction_type, amount, status'),
@@ -165,7 +163,14 @@ export const PendingCoffeePayments = () => {
         if (advanceError) console.error('Error closing advances:', advanceError)
       }
 
-      const newBalance = cashBalance - lot.finalAmount
+      const { data: balanceRecord } = await supabase
+        .from('finance_cash_balance')
+        .select('id, current_balance')
+        .single()
+
+      if (!balanceRecord) throw new Error('Cash balance record not found')
+
+      const newBalance = balanceRecord.current_balance - lot.finalAmount
 
       const { error: transactionError } = await supabase
         .from('finance_cash_transactions')
@@ -185,11 +190,12 @@ export const PendingCoffeePayments = () => {
 
       const { error: balanceError } = await supabase
         .from('finance_cash_balance')
-        .upsert({
+        .update({
           current_balance: newBalance,
           last_updated: new Date().toISOString(),
           updated_by: processedBy
         })
+        .eq('id', balanceRecord.id)
 
       if (balanceError) throw balanceError
 

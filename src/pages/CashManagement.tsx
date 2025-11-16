@@ -54,9 +54,7 @@ export const CashManagement = () => {
         supabase
           .from('finance_cash_balance')
           .select('*')
-          .order('last_updated', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+          .single()
       ])
 
       if (transactionsResult.error) throw transactionsResult.error

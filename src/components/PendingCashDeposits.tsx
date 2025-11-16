@@ -85,10 +85,8 @@ export const PendingCashDeposits = () => {
 
       const { data: currentBalance, error: balanceError } = await supabase
         .from('finance_cash_balance')
-        .select('current_balance')
-        .order('last_updated', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+        .select('id, current_balance')
+        .single()
 
       if (balanceError) throw balanceError
 
@@ -96,11 +94,12 @@ export const PendingCashDeposits = () => {
 
       const { error: balanceUpdateError } = await supabase
         .from('finance_cash_balance')
-        .upsert({
+        .update({
           current_balance: newBalance,
           last_updated: new Date().toISOString(),
           updated_by: confirmedBy
         })
+        .eq('id', currentBalance.id)
 
       if (balanceUpdateError) throw balanceUpdateError
 
