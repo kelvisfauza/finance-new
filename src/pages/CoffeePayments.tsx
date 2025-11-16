@@ -48,10 +48,7 @@ export const CoffeePayments = () => {
       setLoading(true)
       let query = supabase
         .from('coffee_records')
-        .select(`
-          *,
-          quality_assessments(final_price, suggested_price, assessed_by, date_assessed)
-        `)
+        .select('*')
 
       if (statusFilter === 'READY_FOR_FINANCE') {
         query = query.eq('status', 'submitted_to_finance')
@@ -63,22 +60,45 @@ export const CoffeePayments = () => {
         query = query.eq('status', statusFilter)
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false })
+      const { data: coffeeRecords, error } = await query.order('created_at', { ascending: false })
 
       if (error) throw error
 
-      const transformed = (data || []).map((record: any) => ({
-        id: record.id,
-        coffee_record_id: record.batch_number,
-        assessed_by: record.quality_assessments?.[0]?.assessed_by || 'N/A',
-        assessed_at: record.quality_assessments?.[0]?.date_assessed || record.date,
-        quantity_kg: Number(record.kilograms),
-        unit_price_ugx: record.quality_assessments?.[0]?.final_price || record.quality_assessments?.[0]?.suggested_price || 0,
-        total_amount_ugx: Number(record.kilograms) * (record.quality_assessments?.[0]?.final_price || record.quality_assessments?.[0]?.suggested_price || 0),
-        finance_status: record.status === 'paid' ? 'PAID' : record.status === 'submitted_to_finance' ? 'READY_FOR_FINANCE' : 'APPROVED_FOR_PAYMENT',
-        created_at: record.created_at,
-        updated_at: record.updated_at
-      }))
+      if (!coffeeRecords || coffeeRecords.length === 0) {
+        setLots([])
+        return
+      }
+
+      const batchNumbers = coffeeRecords.map((r: any) => r.batch_number)
+
+      const { data: assessments } = await supabase
+        .from('quality_assessments')
+        .select('batch_number, final_price, suggested_price, assessed_by, date_assessed')
+        .in('batch_number', batchNumbers)
+
+      const assessmentMap = new Map()
+      if (assessments) {
+        assessments.forEach((a: any) => {
+          assessmentMap.set(a.batch_number, a)
+        })
+      }
+
+      const transformed = coffeeRecords.map((record: any) => {
+        const assessment = assessmentMap.get(record.batch_number)
+        const unitPrice = assessment?.final_price || assessment?.suggested_price || 0
+        return {
+          id: record.id,
+          coffee_record_id: record.batch_number,
+          assessed_by: assessment?.assessed_by || 'N/A',
+          assessed_at: assessment?.date_assessed || record.date,
+          quantity_kg: Number(record.kilograms),
+          unit_price_ugx: unitPrice,
+          total_amount_ugx: Number(record.kilograms) * unitPrice,
+          finance_status: record.status === 'paid' ? 'PAID' : record.status === 'submitted_to_finance' ? 'READY_FOR_FINANCE' : 'APPROVED_FOR_PAYMENT',
+          created_at: record.created_at,
+          updated_at: record.updated_at
+        }
+      })
 
       setLots(transformed)
     } catch (error: any) {
