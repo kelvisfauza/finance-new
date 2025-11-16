@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './contexts/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
@@ -15,10 +16,20 @@ import { ReportsNew } from './pages/ReportsNew'
 import { FinanceReports } from './pages/FinanceReports'
 import { Settings } from './pages/Settings'
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+})
+
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AuthProvider>
         <Routes>
           <Route path="/auth" element={<Login />} />
 
@@ -48,6 +59,7 @@ function App() {
         </Routes>
       </AuthProvider>
     </BrowserRouter>
+    </QueryClientProvider>
   )
 }
 
