@@ -205,10 +205,12 @@ export const CoffeePayments = () => {
 
       const { data: balanceData } = await supabase
         .from('finance_cash_balance')
-        .select('current_balance')
-        .maybeSingle()
+        .select('id, current_balance')
+        .single()
 
-      const currentBalance = balanceData?.current_balance || 0
+      if (!balanceData) throw new Error('Cash balance not found')
+
+      const currentBalance = balanceData.current_balance || 0
       const newBalance = currentBalance - amount
 
       const { error: cashError } = await supabase
@@ -229,11 +231,12 @@ export const CoffeePayments = () => {
 
       const { error: balanceError } = await supabase
         .from('finance_cash_balance')
-        .upsert({
+        .update({
           current_balance: newBalance,
           last_updated: new Date().toISOString(),
           updated_by: processedBy
         })
+        .eq('id', balanceData.id)
 
       if (balanceError) throw balanceError
 
