@@ -89,6 +89,7 @@ export const CoffeePayments = () => {
         return {
           id: record.id,
           coffee_record_id: record.batch_number,
+          supplier_id: record.supplier_id,
           assessed_by: assessment?.assessed_by || 'N/A',
           assessed_at: assessment?.date_assessed || record.date,
           quantity_kg: Number(record.kilograms),
@@ -150,16 +151,24 @@ export const CoffeePayments = () => {
 
       if (updateError) throw updateError
 
+      const { data: { user } } = await supabase.auth.getUser()
+      const processedBy = user?.email || 'Finance'
+
       const { error: paymentError } = await supabase
         .from('supplier_payments')
         .insert({
-          coffee_record_id: selectedLot.id,
-          batch_number: selectedLot.coffee_record_id,
-          amount: amount,
-          payment_method: paymentMethod,
-          payment_date: new Date().toISOString(),
-          notes: notes || null,
-          created_at: new Date().toISOString()
+          lot_id: selectedLot.id,
+          supplier_id: selectedLot.supplier_id,
+          method: paymentMethod.toUpperCase(),
+          status: 'POSTED',
+          requested_by: processedBy,
+          approved_by: processedBy,
+          approved_at: new Date().toISOString(),
+          gross_payable_ugx: amount,
+          advance_recovered_ugx: 0,
+          amount_paid_ugx: amount,
+          reference: selectedLot.coffee_record_id || '',
+          notes: notes || null
         })
 
       if (paymentError) throw paymentError

@@ -109,13 +109,18 @@ export const PendingCoffeePayments = () => {
       const { error: paymentError } = await supabase
         .from('supplier_payments')
         .insert({
+          lot_id: lot.id,
           supplier_id: lot.supplier_id,
-          coffee_record_id: lot.id,
-          batch_number: lot.batch_number,
-          amount: lot.finalAmount,
-          payment_method: 'cash',
-          payment_date: new Date().toISOString(),
-          created_at: new Date().toISOString()
+          method: 'CASH',
+          status: 'POSTED',
+          requested_by: processedBy,
+          approved_by: processedBy,
+          approved_at: new Date().toISOString(),
+          gross_payable_ugx: lot.totalAmount,
+          advance_recovered_ugx: lot.advanceAmount || 0,
+          amount_paid_ugx: lot.finalAmount,
+          reference: lot.batch_number,
+          notes: `Coffee payment for ${lot.supplier_name} - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`
         })
 
       if (paymentError) throw paymentError
