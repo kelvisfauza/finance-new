@@ -37,20 +37,24 @@ export const CoffeePayments = () => {
 
   useEffect(() => {
     fetchLots()
-  }, [])
+  }, [statusFilter])
 
   useEffect(() => {
     filterLots()
-  }, [lots, searchTerm, statusFilter])
+  }, [lots, searchTerm])
 
   const fetchLots = async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      let query = supabase
         .from('finance_coffee_lots')
         .select('*')
-        .eq('finance_status', 'READY_FOR_FINANCE')
-        .order('created_at', { ascending: false })
+
+      if (statusFilter) {
+        query = query.eq('finance_status', statusFilter)
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false })
 
       if (error) throw error
 
@@ -65,10 +69,6 @@ export const CoffeePayments = () => {
 
   const filterLots = () => {
     let filtered = lots
-
-    if (statusFilter) {
-      filtered = filtered.filter(lot => lot.finance_status === statusFilter)
-    }
 
     if (searchTerm) {
       filtered = filtered.filter(lot =>
