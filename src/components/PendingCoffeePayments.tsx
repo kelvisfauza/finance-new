@@ -100,7 +100,7 @@ export const PendingCoffeePayments = () => {
       const { error: updateError } = await supabase
         .from('coffee_records')
         .update({
-          status: 'paid'
+          status: 'inventory'
         })
         .eq('id', lot.id)
 

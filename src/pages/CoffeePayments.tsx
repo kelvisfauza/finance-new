@@ -53,7 +53,7 @@ export const CoffeePayments = () => {
       if (statusFilter === 'READY_FOR_FINANCE') {
         query = query.eq('status', 'submitted_to_finance')
       } else if (statusFilter === 'PAID') {
-        query = query.eq('status', 'paid')
+        query = query.eq('status', 'inventory')
       } else if (statusFilter === 'APPROVED_FOR_PAYMENT') {
         query = query.eq('status', 'approved')
       } else if (statusFilter) {
@@ -94,7 +94,7 @@ export const CoffeePayments = () => {
           quantity_kg: Number(record.kilograms),
           unit_price_ugx: unitPrice,
           total_amount_ugx: Number(record.kilograms) * unitPrice,
-          finance_status: record.status === 'paid' ? 'PAID' : record.status === 'submitted_to_finance' ? 'READY_FOR_FINANCE' : 'APPROVED_FOR_PAYMENT',
+          finance_status: record.status === 'inventory' ? 'PAID' : record.status === 'submitted_to_finance' ? 'READY_FOR_FINANCE' : 'APPROVED_FOR_PAYMENT',
           created_at: record.created_at,
           updated_at: record.updated_at
         }
@@ -143,7 +143,7 @@ export const CoffeePayments = () => {
       const { error: updateError } = await supabase
         .from('coffee_records')
         .update({
-          status: 'paid',
+          status: 'inventory',
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedLot.id)
