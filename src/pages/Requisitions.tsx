@@ -115,6 +115,7 @@ export const Requisitions = () => {
     if (req.status === 'Rejected') return 'Rejected'
     if (req.admin_approved || req.status === 'Approved') return 'Approved'
     if (req.finance_approved || req.status === 'Pending Admin Approval') return 'Pending Admin Approval'
+    if (isFinanceRole && !req.finance_approved && req.admin_approved) return 'Ready for Review'
     return 'Pending Finance'
   }
 

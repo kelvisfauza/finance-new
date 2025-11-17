@@ -44,7 +44,23 @@ export const HRPayments = () => {
   const [employeeDetails, setEmployeeDetails] = useState<any>(null)
 
   const { sendApprovalResponseSMS } = useSMSNotifications()
-  const { user } = useAuth()
+  const { user, employee } = useAuth()
+
+  const isFinanceRole = employee?.role?.toLowerCase().includes('finance')
+
+  const getDisplayStage = (payment: SalaryPayment) => {
+    if (isFinanceRole && payment.approval_stage === 'pending_finance') {
+      return 'Ready for Review'
+    }
+    return payment.approval_stage?.replace('_', ' ')
+  }
+
+  const getDisplayStatus = (payment: SalaryPayment) => {
+    if (isFinanceRole && payment.status === 'Pending Finance') {
+      return 'Ready for Review'
+    }
+    return payment.status
+  }
 
   useEffect(() => {
     fetchPayments()
@@ -360,7 +376,7 @@ export const HRPayments = () => {
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
-                          {payment.approval_stage?.replace('_', ' ')}
+                          {getDisplayStage(payment)}
                         </span>
                       </td>
                       <td className="py-3 px-4">
@@ -376,7 +392,7 @@ export const HRPayments = () => {
                           ) : (
                             <Clock className="w-3 h-3 mr-1" />
                           )}
-                          {payment.status}
+                          {getDisplayStatus(payment)}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-sm">

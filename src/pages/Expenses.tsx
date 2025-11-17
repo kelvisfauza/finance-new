@@ -114,6 +114,7 @@ export const Expenses = () => {
     if (expense.status === 'Rejected') return 'Rejected'
     if (expense.admin_approved || expense.status === 'Approved') return 'Approved'
     if (expense.finance_approved || expense.status === 'Pending Admin Approval') return 'Pending Admin Approval'
+    if (isFinanceRole && !expense.finance_approved && expense.admin_approved) return 'Ready for Review'
     return 'Pending Finance'
   }
 
