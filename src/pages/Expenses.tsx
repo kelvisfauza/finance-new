@@ -5,6 +5,7 @@ import { Receipt, CheckCircle, Clock, XCircle, Download, Search } from 'lucide-r
 import { PermissionGate } from '../components/PermissionGate'
 import { useAuth } from '../contexts/AuthContext'
 import { useEmployeesByEmail } from '../hooks/useEmployeesByEmail'
+import { useFinanceNotifications } from '../hooks/useFinanceNotifications'
 
 interface Expense {
   id: string
@@ -32,6 +33,7 @@ interface Expense {
 
 export const Expenses = () => {
   const { employee } = useAuth()
+  const { createNotification } = useFinanceNotifications()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
@@ -202,6 +204,21 @@ export const Expenses = () => {
 
         if (cashError) throw cashError
 
+        await createNotification(
+          'Expense Approved',
+          `Your expense "${selectedExpense.title}" for ${formatCurrency(selectedExpense.amount)} has been approved by Finance.`,
+          {
+            type: 'system',
+            priority: 'Medium',
+            targetUserEmail: selectedExpense.requestedby,
+            metadata: {
+              expenseId: selectedExpense.id,
+              amount: selectedExpense.amount,
+              approvedBy: employee.name,
+            }
+          }
+        )
+
         fetchExpenses()
       } else if (actionType === 'reject') {
         const { error } = await supabase
@@ -214,6 +231,21 @@ export const Expenses = () => {
           .eq('id', selectedExpense.id)
 
         if (error) throw error
+
+        await createNotification(
+          'Expense Rejected',
+          `Your expense "${selectedExpense.title}" for ${formatCurrency(selectedExpense.amount)} has been rejected by Finance.`,
+          {
+            type: 'system',
+            priority: 'High',
+            targetUserEmail: selectedExpense.requestedby,
+            metadata: {
+              expenseId: selectedExpense.id,
+              amount: selectedExpense.amount,
+              rejectedBy: employee.name,
+            }
+          }
+        )
 
         fetchExpenses()
       }

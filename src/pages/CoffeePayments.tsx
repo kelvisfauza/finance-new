@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { Coffee, DollarSign, CheckCircle, Clock, Download, Search } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
+import { useFinanceNotifications } from '../hooks/useFinanceNotifications'
 
 interface CoffeeLot {
   id: string
@@ -22,6 +23,7 @@ interface CoffeeLot {
 }
 
 export const CoffeePayments = () => {
+  const { createNotification } = useFinanceNotifications()
   const [lots, setLots] = useState<CoffeeLot[]>([])
   const [filteredLots, setFilteredLots] = useState<CoffeeLot[]>([])
   const [loading, setLoading] = useState(true)
@@ -239,6 +241,22 @@ export const CoffeePayments = () => {
         .eq('id', balanceData.id)
 
       if (balanceError) throw balanceError
+
+      await createNotification(
+        'Coffee Payment Processed',
+        `Payment of ${formatCurrency(amount)} for ${selectedLot.quantity_kg}kg coffee lot has been processed successfully.`,
+        {
+          type: 'payment_ready',
+          priority: 'High',
+          metadata: {
+            lotId: financeLotId,
+            coffeeRecordId: selectedLot.coffee_record_id,
+            amount: amount,
+            quantityKg: selectedLot.quantity_kg,
+            processedBy: processedBy,
+          }
+        }
+      )
 
       alert('Coffee payment processed successfully')
       setShowPaymentModal(false)

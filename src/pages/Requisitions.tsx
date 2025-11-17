@@ -5,6 +5,7 @@ import { FileText, CheckCircle, Clock, XCircle, Download, Search } from 'lucide-
 import { PermissionGate } from '../components/PermissionGate'
 import { useAuth } from '../contexts/AuthContext'
 import { useEmployeesByEmail } from '../hooks/useEmployeesByEmail'
+import { useFinanceNotifications } from '../hooks/useFinanceNotifications'
 
 interface Requisition {
   id: string
@@ -33,6 +34,7 @@ interface Requisition {
 
 export const Requisitions = () => {
   const { employee } = useAuth()
+  const { createNotification } = useFinanceNotifications()
   const [requisitions, setRequisitions] = useState<Requisition[]>([])
   const [filteredRequisitions, setFilteredRequisitions] = useState<Requisition[]>([])
   const [loading, setLoading] = useState(true)
@@ -202,6 +204,21 @@ export const Requisitions = () => {
 
         if (cashError) throw cashError
 
+        await createNotification(
+          'Requisition Approved',
+          `Your requisition "${selectedRequisition.title}" for ${formatCurrency(selectedRequisition.amount)} has been approved by Finance.`,
+          {
+            type: 'system',
+            priority: 'Medium',
+            targetUserEmail: selectedRequisition.requestedby,
+            metadata: {
+              requisitionId: selectedRequisition.id,
+              amount: selectedRequisition.amount,
+              approvedBy: employee.name,
+            }
+          }
+        )
+
         fetchRequisitions()
       } else if (actionType === 'reject') {
         const { error } = await supabase
@@ -214,6 +231,21 @@ export const Requisitions = () => {
           .eq('id', selectedRequisition.id)
 
         if (error) throw error
+
+        await createNotification(
+          'Requisition Rejected',
+          `Your requisition "${selectedRequisition.title}" for ${formatCurrency(selectedRequisition.amount)} has been rejected by Finance.`,
+          {
+            type: 'system',
+            priority: 'High',
+            targetUserEmail: selectedRequisition.requestedby,
+            metadata: {
+              requisitionId: selectedRequisition.id,
+              amount: selectedRequisition.amount,
+              rejectedBy: employee.name,
+            }
+          }
+        )
 
         fetchRequisitions()
       }

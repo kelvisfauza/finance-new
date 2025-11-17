@@ -3,6 +3,7 @@ import { Navigation } from './Navigation'
 import { useAuth } from '../contexts/AuthContext'
 import { LogOut, User } from 'lucide-react'
 import { useState } from 'react'
+import { NotificationBell } from './NotificationBell'
 
 export const Layout = () => {
   const { employee, signOut } = useAuth()
@@ -73,6 +74,10 @@ export const Layout = () => {
         </aside>
 
         <main className="flex-1 ml-64">
+          <div className="sticky top-0 z-40 bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between">
+            <div className="flex-1"></div>
+            <NotificationBell />
+          </div>
           <div className="p-8">
             <Outlet />
           </div>
