@@ -56,11 +56,19 @@ export function NotificationBell() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative rounded-full p-2 hover:bg-slate-700 transition-colors"
+        className="relative rounded-lg px-4 py-3 bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-lg flex items-center gap-3"
       >
-        <Bell className="h-5 w-5 text-slate-200" />
+        <Bell className="h-6 w-6 text-white" strokeWidth={2.5} />
+        <div className="flex flex-col items-start">
+          <span className="text-white font-semibold text-sm">Notifications</span>
+          {unreadCount > 0 && (
+            <span className="text-emerald-100 text-xs font-medium">
+              {unreadCount} new {unreadCount === 1 ? 'item' : 'items'}
+            </span>
+          )}
+        </div>
         {unreadCount > 0 && (
-          <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-semibold text-white">
+          <span className="inline-flex h-8 min-w-[32px] items-center justify-center rounded-full bg-white px-2 text-sm font-bold text-emerald-700 shadow-sm">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
