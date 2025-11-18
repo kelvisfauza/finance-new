@@ -287,6 +287,7 @@ export const Requisitions = () => {
       setSelectedRequisition(null)
     } catch (error: any) {
       console.error('Error processing action:', error)
+      alert(`Error: ${error.message || 'Failed to process action'}`)
     } finally {
       setProcessing(false)
     }
@@ -836,8 +837,8 @@ export const Requisitions = () => {
                 : 'bg-gradient-to-r from-red-600 to-red-700'
             }`}>
               <h3 className="text-xl font-semibold text-white">
-                {actionType === 'finance-review' && 'Finance Review'}
-                {actionType === 'admin-approve' && 'Final Approval & Release Cash'}
+                {actionType === 'finance-review' && 'Final Approval & Release Cash'}
+                {actionType === 'admin-approve' && 'Admin Approval'}
                 {actionType === 'reject' && 'Reject Requisition'}
               </h3>
             </div>
@@ -876,7 +877,7 @@ export const Requisitions = () => {
               </div>
 
               <p className="text-sm text-gray-600">
-                {actionType === 'finance-review' && 'Mark this requisition as reviewed by Finance. Admin will provide final approval.'}
+                {actionType === 'finance-review' && 'This will approve the requisition, release the cash amount, and create financial records. This action cannot be undone.'}
                 {actionType === 'admin-approve' && 'This will provide final approval and create financial records. This action cannot be undone.'}
                 {actionType === 'reject' && 'Are you sure you want to reject this requisition?'}
               </p>
@@ -905,8 +906,8 @@ export const Requisitions = () => {
                 }`}
               >
                 {processing ? 'Processing...' :
-                  actionType === 'finance-review' ? 'Confirm Review' :
-                  actionType === 'admin-approve' ? 'Approve & Release' :
+                  actionType === 'finance-review' ? 'Approve & Release Cash' :
+                  actionType === 'admin-approve' ? 'Confirm Admin Approval' :
                   'Confirm Rejection'}
               </button>
             </div>
