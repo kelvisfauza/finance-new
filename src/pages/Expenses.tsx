@@ -317,6 +317,7 @@ export const Expenses = () => {
     const financeApprover = expense.finance_approved_by ? getEmployee(expense.finance_approved_by) : null
     const adminApprover = expense.admin_approved_by ? getEmployee(expense.admin_approved_by) : null
 
+    printWindow.document.open()
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -578,8 +579,8 @@ export const Expenses = () => {
       </body>
       </html>
     `)
-
     printWindow.document.close()
+    printWindow.focus()
   }
 
   return (

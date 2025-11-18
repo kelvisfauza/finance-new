@@ -316,6 +316,7 @@ export const Requisitions = () => {
     const financeApprover = requisition.finance_approved_by ? getEmployee(requisition.finance_approved_by) : null
     const adminApprover = requisition.admin_approved_by ? getEmployee(requisition.admin_approved_by) : null
 
+    printWindow.document.open()
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -577,8 +578,8 @@ export const Requisitions = () => {
       </body>
       </html>
     `)
-
     printWindow.document.close()
+    printWindow.focus()
   }
 
   return (

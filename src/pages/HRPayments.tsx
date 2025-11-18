@@ -325,6 +325,7 @@ export const HRPayments = () => {
       return
     }
 
+    printWindow.document.open()
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -571,8 +572,8 @@ export const HRPayments = () => {
       </body>
       </html>
     `)
-
     printWindow.document.close()
+    printWindow.focus()
   }
 
   return (
