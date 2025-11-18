@@ -36,31 +36,43 @@ export const usePendingCounts = () => {
 
   const fetchCounts = async () => {
     try {
-      const { data, error } = await supabase
+      // Count from approval_requests table
+      const { data: approvalData, error: approvalError } = await supabase
         .from('approval_requests')
         .select('type, admin_approved, finance_approved, status')
         .eq('admin_approved', true)
         .eq('finance_approved', false)
         .in('status', ['Pending Finance', 'Pending'])
 
-      if (error) throw error
+      if (approvalError) throw approvalError
 
-      const expenseCount = data?.filter((r: any) =>
+      // Count from money_requests table (old HR system)
+      const { data: moneyData, error: moneyError } = await supabase
+        .from('money_requests')
+        .select('id')
+        .eq('finance_approved', false)
+        .in('status', ['approved', 'Approved', 'Pending Finance'])
+
+      if (moneyError) throw moneyError
+
+      const expenseCount = approvalData?.filter((r: any) =>
         ['Expense Request', 'Company Expense', 'Field Financing Request', 'Personal Expense'].includes(r.type)
       ).length || 0
 
-      const requisitionCount = data?.filter((r: any) =>
+      const requisitionCount = approvalData?.filter((r: any) =>
         ['Requisition', 'Cash Requisition'].includes(r.type)
       ).length || 0
 
-      const hrCount = data?.filter((r: any) =>
-        ['Salary Request', 'Wage Request'].includes(r.type)
+      const hrCountFromApprovals = approvalData?.filter((r: any) =>
+        ['Salary Request', 'Wage Request', 'Employee Salary Request', 'Salary Advance'].includes(r.type)
       ).length || 0
+
+      const hrCountFromMoney = moneyData?.length || 0
 
       setCounts({
         expenses: expenseCount,
         requisitions: requisitionCount,
-        hrPayments: hrCount
+        hrPayments: hrCountFromApprovals + hrCountFromMoney
       })
     } catch (error) {
       console.error('Error fetching pending counts:', error)

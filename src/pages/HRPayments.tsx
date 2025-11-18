@@ -83,42 +83,67 @@ export const HRPayments = () => {
         setLoading(true)
       }
 
-      let query = supabase
+      // Fetch from money_requests table (old system)
+      let moneyQuery = supabase
         .from('money_requests')
         .select('*')
-
-      query = query
         .eq('finance_approved', false)
         .in('status', ['approved', 'Approved', 'Pending Finance'])
 
-      const { data: paymentsData, error: paymentsError } = await query
-        .order('created_at', { ascending: false })
+      const { data: moneyData, error: moneyError } = await moneyQuery.order('created_at', { ascending: false })
 
-      if (paymentsError) throw paymentsError
+      if (moneyError) throw moneyError
 
-      if (paymentsData && paymentsData.length > 0) {
-        const userIds = paymentsData.map((p: any) => p.user_id).filter(Boolean)
+      // Fetch from approval_requests table (new system)
+      let approvalQuery = supabase
+        .from('approval_requests')
+        .select('*')
+        .in('type', ['Salary Request', 'Wage Request', 'Employee Salary Request', 'Salary Advance'])
+        .eq('admin_approved', true)
+        .eq('finance_approved', false)
+        .in('status', ['Pending Finance', 'Pending'])
 
+      const { data: approvalData, error: approvalError } = await approvalQuery.order('created_at', { ascending: false })
+
+      if (approvalError) throw approvalError
+
+      // Combine both data sources
+      const allPayments = [...(moneyData || []), ...(approvalData || [])]
+
+      if (allPayments.length > 0) {
+        const userIds = allPayments.map((p: any) => p.user_id).filter(Boolean)
+        const requestedByEmails = allPayments
+          .filter((p: any) => p.requestedby)
+          .map((p: any) => p.requestedby)
+
+        // Fetch employee info by both user_id and email
         const { data: employees, error: empError } = await supabase
           .from('employees')
-          .select('auth_user_id, name, phone, position')
-          .in('auth_user_id', userIds)
+          .select('auth_user_id, email, name, phone, position')
 
         if (empError) {
           console.error('Error fetching employee names:', empError)
         }
 
         type EmployeeInfo = { name: string; phone: string; position: string }
-        const employeeMap = new Map<string, EmployeeInfo>(
+        const employeeMapById = new Map<string, EmployeeInfo>(
           employees?.map((emp: any) => [emp.auth_user_id, { name: emp.name, phone: emp.phone, position: emp.position }]) || []
         )
+        const employeeMapByEmail = new Map<string, EmployeeInfo>(
+          employees?.map((emp: any) => [emp.email, { name: emp.name, phone: emp.phone, position: emp.position }]) || []
+        )
 
-        const enrichedPayments = paymentsData.map((payment: any) => ({
-          ...payment,
-          employee_name: employeeMap.get(payment.user_id)?.name || payment.requested_by,
-          employee_phone: employeeMap.get(payment.user_id)?.phone,
-          employee_position: employeeMap.get(payment.user_id)?.position
-        }))
+        const enrichedPayments = allPayments.map((payment: any) => {
+          const empInfo = employeeMapById.get(payment.user_id) || employeeMapByEmail.get(payment.requestedby)
+          return {
+            ...payment,
+            employee_name: empInfo?.name || payment.requested_by || payment.requestedby,
+            employee_phone: empInfo?.phone,
+            employee_position: empInfo?.position,
+            request_type: payment.request_type || payment.type,
+            reason: payment.reason || payment.title
+          }
+        })
 
         setPayments(enrichedPayments)
       } else {
@@ -162,13 +187,16 @@ export const HRPayments = () => {
     try {
       setProcessingId(payment.id)
 
+      // Determine which table this payment came from
+      const tableName = payment.user_id ? 'money_requests' : 'approval_requests'
+
       const { error: updateError } = await supabase
-        .from('money_requests')
+        .from(tableName)
         .update({
           status: 'Approved',
           finance_approved: true,
           finance_approved_at: new Date().toISOString(),
-          finance_approved_by: user?.email || 'Finance',
+          finance_approved_by: employee?.name || user?.email || 'Finance',
           approval_stage: 'finance_approved',
           updated_at: new Date().toISOString()
         })
@@ -235,8 +263,11 @@ export const HRPayments = () => {
     try {
       setProcessingId(payment.id)
 
+      // Determine which table this payment came from
+      const tableName = payment.user_id ? 'money_requests' : 'approval_requests'
+
       const { error } = await supabase
-        .from('money_requests')
+        .from(tableName)
         .update({
           status: 'Rejected',
           finance_approved: false,
