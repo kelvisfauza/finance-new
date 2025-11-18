@@ -305,11 +305,25 @@ export const Requisitions = () => {
     exportToCSV(exportData, `requisitions-${statusFilter}-${new Date().toISOString().split('T')[0]}`)
   }
 
-  const handlePrint = (requisition: Requisition) => {
+  const handlePrint = async (requisition: Requisition) => {
     const requester = getEmployee(requisition.requestedby)
     const financeApprover = requisition.finance_approved_by ? getEmployee(requisition.finance_approved_by) : null
     const adminApprover = requisition.admin_approved_by ? getEmployee(requisition.admin_approved_by) : null
     const formattedAmount = formatCurrency(requisition.amount)
+
+    // Convert logo to base64
+    let logoBase64 = ''
+    try {
+      const response = await fetch('/gpcf-logo copy.png')
+      const blob = await response.blob()
+      logoBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result as string)
+        reader.readAsDataURL(blob)
+      })
+    } catch (error) {
+      console.error('Error loading logo:', error)
+    }
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -444,7 +458,7 @@ export const Requisitions = () => {
       </head>
       <body>
         <div class="header">
-          <img src="/gpcf-logo copy.png" alt="Great Pearl Coffee Finance Logo" onerror="this.style.display='none'">
+          ${logoBase64 ? `<img src="${logoBase64}" alt="Great Pearl Coffee Finance Logo">` : ''}
           <div class="header-text">
             <h1>GREAT PEARL COFFEE FINANCE</h1>
             <div class="subtitle">Kasese, Uganda | www.greatpearlcoffee.com</div>
