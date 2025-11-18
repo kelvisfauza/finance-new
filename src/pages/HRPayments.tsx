@@ -325,8 +325,10 @@ export const HRPayments = () => {
       return
     }
 
-    printWindow.document.open()
-    printWindow.document.write(`
+    setTimeout(() => {
+      try {
+        printWindow.document.open()
+        printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
@@ -571,9 +573,15 @@ export const HRPayments = () => {
         </div>
       </body>
       </html>
-    `)
-    printWindow.document.close()
-    printWindow.focus()
+        `)
+        printWindow.document.close()
+        printWindow.focus()
+      } catch (error) {
+        console.error('Print error:', error)
+        alert('Error generating print preview. Please try again.')
+        printWindow.close()
+      }
+    }, 100)
   }
 
   return (

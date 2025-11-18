@@ -317,8 +317,10 @@ export const Expenses = () => {
     const financeApprover = expense.finance_approved_by ? getEmployee(expense.finance_approved_by) : null
     const adminApprover = expense.admin_approved_by ? getEmployee(expense.admin_approved_by) : null
 
-    printWindow.document.open()
-    printWindow.document.write(`
+    setTimeout(() => {
+      try {
+        printWindow.document.open()
+        printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
@@ -578,9 +580,15 @@ export const Expenses = () => {
         </div>
       </body>
       </html>
-    `)
-    printWindow.document.close()
-    printWindow.focus()
+        `)
+        printWindow.document.close()
+        printWindow.focus()
+      } catch (error) {
+        console.error('Print error:', error)
+        alert('Error generating print preview. Please try again.')
+        printWindow.close()
+      }
+    }, 100)
   }
 
   return (
