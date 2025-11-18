@@ -327,18 +327,42 @@ export const Requisitions = () => {
           }
           .header {
             text-align: center;
-            border-bottom: 2px solid #333;
+            border-bottom: 3px solid #f97316;
             padding-bottom: 20px;
             margin-bottom: 30px;
+            background: linear-gradient(to bottom, #fff, #fef3f2);
+            padding: 20px;
+            border-radius: 8px 8px 0 0;
+          }
+          .header img {
+            max-width: 120px;
+            height: auto;
+            margin-bottom: 15px;
           }
           .header h1 {
-            margin: 0;
+            margin: 10px 0 5px 0;
             color: #f97316;
-            font-size: 24px;
+            font-size: 26px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
           }
-          .header p {
-            margin: 5px 0;
+          .header .subtitle {
+            font-size: 14px;
             color: #666;
+            margin: 5px 0;
+          }
+          .header .document-type {
+            margin: 10px 0 0 0;
+            color: #333;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            background: #f97316;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 4px;
+            display: inline-block;
           }
           .voucher-info {
             display: flex;
@@ -416,8 +440,11 @@ export const Requisitions = () => {
       </head>
       <body>
         <div class="header">
+          <img src="/gpcf-logo.png" alt="Great Pearl Coffee Finance Logo" onerror="this.style.display='none'">
           <h1>GREAT PEARL COFFEE FINANCE</h1>
-          <p>Requisition Voucher</p>
+          <div class="subtitle">Excellence in Coffee Trading & Finance</div>
+          <div class="subtitle">Email: info@greatpearlcoffee.com | Phone: +256-XXX-XXXXXX</div>
+          <div class="document-type">Requisition Voucher</div>
         </div>
 
         <div class="voucher-info">
@@ -477,27 +504,47 @@ export const Requisitions = () => {
         </div>
 
         <div class="details-section">
-          <div class="section-title">Approval History</div>
-          ${requisition.admin_approved ? `
-          <div class="info-row">
-            <span class="label">Admin Approved By:</span>
-            <span class="value">${adminApprover?.name || requisition.admin_approved_by || 'N/A'}</span>
+          <div class="section-title">Approval Process</div>
+          <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border-left: 4px solid #f97316;">
+            <div style="margin-bottom: 15px;">
+              <strong style="color: #f97316; font-size: 14px;">STEP 1: ADMIN APPROVAL</strong>
+              ${requisition.admin_approved ? `
+                <div class="info-row" style="margin-top: 8px;">
+                  <span class="label">✓ Approved By:</span>
+                  <span class="value" style="color: #16a34a;">${adminApprover?.name || requisition.admin_approved_by || 'N/A'}</span>
+                </div>
+                ${adminApprover?.position ? `
+                <div class="info-row">
+                  <span class="label">Position:</span>
+                  <span class="value">${adminApprover.position}</span>
+                </div>
+                ` : ''}
+                <div class="info-row">
+                  <span class="label">Date & Time:</span>
+                  <span class="value">${requisition.admin_approved_at ? new Date(requisition.admin_approved_at).toLocaleString() : 'N/A'}</span>
+                </div>
+              ` : '<div style="color: #999; margin-top: 8px;">Pending Admin Approval</div>'}
+            </div>
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 15px;">
+              <strong style="color: #f97316; font-size: 14px;">STEP 2: FINANCE APPROVAL</strong>
+              ${requisition.finance_approved ? `
+                <div class="info-row" style="margin-top: 8px;">
+                  <span class="label">✓ Approved By:</span>
+                  <span class="value" style="color: #16a34a;">${financeApprover?.name || requisition.finance_approved_by || 'N/A'}</span>
+                </div>
+                ${financeApprover?.position ? `
+                <div class="info-row">
+                  <span class="label">Position:</span>
+                  <span class="value">${financeApprover.position}</span>
+                </div>
+                ` : ''}
+                <div class="info-row">
+                  <span class="label">Date & Time:</span>
+                  <span class="value">${requisition.finance_approved_at ? new Date(requisition.finance_approved_at).toLocaleString() : 'N/A'}</span>
+                </div>
+              ` : '<div style="color: #999; margin-top: 8px;">Pending Finance Approval</div>'}
+            </div>
           </div>
-          <div class="info-row">
-            <span class="label">Admin Approved At:</span>
-            <span class="value">${requisition.admin_approved_at ? new Date(requisition.admin_approved_at).toLocaleString() : 'N/A'}</span>
-          </div>
-          ` : ''}
-          ${requisition.finance_approved ? `
-          <div class="info-row">
-            <span class="label">Finance Approved By:</span>
-            <span class="value">${financeApprover?.name || requisition.finance_approved_by || 'N/A'}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">Finance Approved At:</span>
-            <span class="value">${requisition.finance_approved_at ? new Date(requisition.finance_approved_at).toLocaleString() : 'N/A'}</span>
-          </div>
-          ` : ''}
         </div>
 
         <div class="signatures">
