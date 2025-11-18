@@ -320,7 +320,10 @@ export const HRPayments = () => {
 
   const handlePrint = (payment: SalaryPayment) => {
     const printWindow = window.open('', '', 'width=800,height=600')
-    if (!printWindow) return
+    if (!printWindow) {
+      alert('Print window blocked. Please allow popups for this site.')
+      return
+    }
 
     printWindow.document.write(`
       <!DOCTYPE html>

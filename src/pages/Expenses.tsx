@@ -308,7 +308,10 @@ export const Expenses = () => {
 
   const handlePrint = (expense: Expense) => {
     const printWindow = window.open('', '', 'width=800,height=600')
-    if (!printWindow) return
+    if (!printWindow) {
+      alert('Print window blocked. Please allow popups for this site.')
+      return
+    }
 
     const requester = getEmployee(expense.requestedby)
     const financeApprover = expense.finance_approved_by ? getEmployee(expense.finance_approved_by) : null

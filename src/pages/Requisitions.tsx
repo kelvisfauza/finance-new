@@ -307,7 +307,10 @@ export const Requisitions = () => {
 
   const handlePrint = (requisition: Requisition) => {
     const printWindow = window.open('', '', 'width=800,height=600')
-    if (!printWindow) return
+    if (!printWindow) {
+      alert('Print window blocked. Please allow popups for this site.')
+      return
+    }
 
     const requester = getEmployee(requisition.requestedby)
     const financeApprover = requisition.finance_approved_by ? getEmployee(requisition.finance_approved_by) : null
