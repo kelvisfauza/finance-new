@@ -45,7 +45,10 @@ export const Expenses = () => {
   const [processing, setProcessing] = useState(false)
   const [actionType, setActionType] = useState<'finance-review' | 'admin-approve' | 'reject'>('admin-approve')
 
-  const isFinanceRole = employee?.role?.toLowerCase().includes('finance')
+  const isFinanceRole = employee?.role?.toLowerCase().includes('finance') ||
+    employee?.permissions?.includes('Finance') ||
+    employee?.permissions?.includes('Finance Management') ||
+    employee?.permissions?.includes('Finance Approval')
   const isAdminRole = ['Super Admin', 'Administrator', 'Manager'].includes(employee?.role || '')
 
   const allEmails = useMemo(() => {
