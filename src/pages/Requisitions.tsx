@@ -319,59 +319,60 @@ export const Requisitions = () => {
         <style>
           body {
             font-family: Arial, sans-serif;
-            padding: 40px;
+            padding: 20px;
             max-width: 800px;
             margin: 0 auto;
+            font-size: 12px;
           }
           .header {
-            text-align: center;
-            border-bottom: 3px solid #f97316;
-            padding-bottom: 20px;
-            margin-bottom: 30px;
-            background: linear-gradient(to bottom, #fff, #fef3f2);
-            padding: 20px;
-            border-radius: 8px 8px 0 0;
-          }
-          .header img {
-            max-width: 120px;
-            height: auto;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 2px solid #8B4513;
+            padding-bottom: 12px;
             margin-bottom: 15px;
           }
+          .header img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+          }
+          .header-text {
+            flex: 1;
+          }
           .header h1 {
-            margin: 10px 0 5px 0;
-            color: #f97316;
-            font-size: 26px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-          }
-          .header .subtitle {
-            font-size: 14px;
-            color: #666;
-            margin: 5px 0;
-          }
-          .header .document-type {
-            margin: 10px 0 0 0;
-            color: #333;
+            margin: 0;
+            color: #8B4513;
             font-size: 18px;
             font-weight: bold;
+          }
+          .header .subtitle {
+            font-size: 10px;
+            color: #666;
+            margin: 2px 0;
+          }
+          .document-type {
+            text-align: center;
+            color: #333;
+            font-size: 14px;
+            font-weight: bold;
             text-transform: uppercase;
-            background: #f97316;
-            color: white;
-            padding: 8px 20px;
+            background: #f5f5f5;
+            padding: 6px 15px;
             border-radius: 4px;
-            display: inline-block;
+            margin-bottom: 12px;
           }
           .voucher-info {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 30px;
+            margin-bottom: 12px;
           }
           .info-section {
             flex: 1;
           }
           .info-row {
-            margin: 8px 0;
+            margin: 4px 0;
+            font-size: 11px;
           }
           .label {
             font-weight: bold;
@@ -382,68 +383,75 @@ export const Requisitions = () => {
           }
           .amount-section {
             background: #f3f4f6;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 20px 0;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 12px 0;
             text-align: center;
           }
           .amount {
-            font-size: 32px;
+            font-size: 24px;
             font-weight: bold;
-            color: #f97316;
+            color: #8B4513;
           }
           .details-section {
-            margin: 30px 0;
+            margin: 12px 0;
           }
           .section-title {
-            font-size: 16px;
+            font-size: 13px;
             font-weight: bold;
             color: #333;
-            margin-bottom: 15px;
+            margin-bottom: 8px;
             border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 8px;
+            padding-bottom: 4px;
           }
           .signatures {
             display: flex;
             justify-content: space-around;
-            margin-top: 60px;
+            margin-top: 20px;
           }
           .signature-box {
             text-align: center;
             flex: 1;
-            margin: 0 20px;
+            margin: 0 10px;
           }
           .signature-line {
-            border-top: 2px solid #333;
-            margin-top: 50px;
-            padding-top: 8px;
+            border-top: 1px solid #333;
+            margin-top: 25px;
+            padding-top: 6px;
+            font-size: 11px;
           }
           .footer {
-            margin-top: 60px;
+            margin-top: 20px;
             text-align: center;
-            font-size: 12px;
+            font-size: 9px;
             color: #999;
             border-top: 1px solid #e5e7eb;
-            padding-top: 20px;
+            padding-top: 10px;
           }
           @media print {
             body {
-              padding: 20px;
+              padding: 15px;
             }
             .no-print {
               display: none;
+            }
+            @page {
+              margin: 15mm;
+              size: A4;
             }
           }
         </style>
       </head>
       <body>
         <div class="header">
-          <img src="/gpcf-logo.png" alt="Great Pearl Coffee Finance Logo" onerror="this.style.display='none'">
-          <h1>GREAT PEARL COFFEE FINANCE</h1>
-          <div class="subtitle">Excellence in Coffee Trading & Finance</div>
-          <div class="subtitle">Email: info@greatpearlcoffee.com | Phone: +256-XXX-XXXXXX</div>
-          <div class="document-type">Requisition Voucher</div>
+          <img src="/logo without bc.png" alt="Great Pearl Coffee Finance Logo" onerror="this.style.display='none'">
+          <div class="header-text">
+            <h1>GREAT PEARL COFFEE FINANCE</h1>
+            <div class="subtitle">P.O Box 12345, Kampala, Uganda</div>
+            <div class="subtitle">Tel: +256-XXX-XXXXXX | Email: info@greatpearlcoffee.com</div>
+          </div>
         </div>
+        <div class="document-type">Requisition Voucher</div>
 
         <div class="voucher-info">
           <div class="info-section">
@@ -503,9 +511,9 @@ export const Requisitions = () => {
 
         <div class="details-section">
           <div class="section-title">Approval Process</div>
-          <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border-left: 4px solid #f97316;">
-            <div style="margin-bottom: 15px;">
-              <strong style="color: #f97316; font-size: 14px;">STEP 1: ADMIN APPROVAL</strong>
+          <div style="background: #f9fafb; padding: 10px; border-radius: 4px; border-left: 3px solid #8B4513;">
+            <div style="margin-bottom: 8px;">
+              <strong style="color: #8B4513; font-size: 11px;">STEP 1: ADMIN APPROVAL</strong>
               ${requisition.admin_approved ? `
                 <div class="info-row" style="margin-top: 8px;">
                   <span class="label">✓ Approved By:</span>
@@ -521,10 +529,10 @@ export const Requisitions = () => {
                   <span class="label">Date & Time:</span>
                   <span class="value">${requisition.admin_approved_at ? new Date(requisition.admin_approved_at).toLocaleString() : 'N/A'}</span>
                 </div>
-              ` : '<div style="color: #999; margin-top: 8px;">Pending Admin Approval</div>'}
+              ` : '<div style="color: #999; margin-top: 4px; font-size: 10px;">Pending Admin Approval</div>'}
             </div>
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 15px;">
-              <strong style="color: #f97316; font-size: 14px;">STEP 2: FINANCE APPROVAL</strong>
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 8px; margin-top: 8px;">
+              <strong style="color: #8B4513; font-size: 11px;">STEP 2: FINANCE APPROVAL</strong>
               ${requisition.finance_approved ? `
                 <div class="info-row" style="margin-top: 8px;">
                   <span class="label">✓ Approved By:</span>
@@ -540,7 +548,7 @@ export const Requisitions = () => {
                   <span class="label">Date & Time:</span>
                   <span class="value">${requisition.finance_approved_at ? new Date(requisition.finance_approved_at).toLocaleString() : 'N/A'}</span>
                 </div>
-              ` : '<div style="color: #999; margin-top: 8px;">Pending Finance Approval</div>'}
+              ` : '<div style="color: #999; margin-top: 4px; font-size: 10px;">Pending Finance Approval</div>'}
             </div>
           </div>
         </div>
@@ -549,20 +557,20 @@ export const Requisitions = () => {
           <div class="signature-box">
             <div class="signature-line">
               <strong>Received By</strong><br>
-              <span style="font-size: 12px;">Name & Signature</span>
+              <span style="font-size: 10px;">Name & Signature</span>
             </div>
           </div>
           <div class="signature-box">
             <div class="signature-line">
               <strong>Authorized By</strong><br>
-              <span style="font-size: 12px;">Finance Department</span>
+              <span style="font-size: 10px;">Finance Department</span>
             </div>
           </div>
         </div>
 
         <div class="footer">
-          <p>This is a computer-generated document. Printed on ${new Date().toLocaleString()}</p>
-          <p>Great Pearl Coffee Finance - Finance Management System</p>
+          <p style="margin: 2px 0;">Computer-generated document | Printed: ${new Date().toLocaleDateString()}</p>
+          <p style="margin: 2px 0;">Great Pearl Coffee Finance - Finance Management System</p>
         </div>
 
         <div class="no-print" style="text-align: center; margin-top: 30px;">
