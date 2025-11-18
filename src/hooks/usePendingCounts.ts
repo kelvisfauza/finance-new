@@ -38,15 +38,24 @@ export const usePendingCounts = () => {
     try {
       const { data, error } = await supabase
         .from('approval_requests')
-        .select('type, finance_approved')
-        .eq('status', 'Pending')
+        .select('type, admin_approved, finance_approved, status')
+        .eq('admin_approved', true)
         .eq('finance_approved', false)
+        .in('status', ['Pending Finance', 'Pending'])
 
       if (error) throw error
 
-      const expenseCount = data?.filter((r: any) => r.type === 'expense').length || 0
-      const requisitionCount = data?.filter((r: any) => r.type === 'requisition').length || 0
-      const hrCount = data?.filter((r: any) => r.type === 'salary' || r.type === 'wage').length || 0
+      const expenseCount = data?.filter((r: any) =>
+        ['Expense Request', 'Company Expense', 'Field Financing Request'].includes(r.type)
+      ).length || 0
+
+      const requisitionCount = data?.filter((r: any) =>
+        ['Requisition', 'Cash Requisition'].includes(r.type)
+      ).length || 0
+
+      const hrCount = data?.filter((r: any) =>
+        ['Salary Request', 'Wage Request'].includes(r.type)
+      ).length || 0
 
       setCounts({
         expenses: expenseCount,

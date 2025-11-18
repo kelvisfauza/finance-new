@@ -87,7 +87,7 @@ export const Requisitions = () => {
       let query = supabase
         .from('approval_requests')
         .select('*')
-        .eq('type', 'Requisition')
+        .in('type', ['Requisition', 'Cash Requisition'])
 
       if (isFinanceRole) {
         query = query
@@ -536,8 +536,8 @@ export const Requisitions = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Requisitions</h1>
-          <p className="text-gray-600">Review and approve purchase requisitions</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Requisitions & Cash Requests</h1>
+          <p className="text-gray-600">Review and approve purchase requisitions and cash requests</p>
         </div>
         <PermissionGate roles={['Super Admin', 'Manager', 'Administrator']}>
           <button
