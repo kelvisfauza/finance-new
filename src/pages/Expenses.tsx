@@ -91,8 +91,7 @@ export const Expenses = () => {
       if (isFinanceRole) {
         query = query
           .eq('admin_approved', true)
-          .eq('finance_approved', false)
-          .eq('status', 'Pending Finance')
+          .in('status', ['Pending Finance', 'Approved'])
       }
 
       const { data, error } = await query.order('created_at', { ascending: false })

@@ -100,8 +100,7 @@ export const HRPayments = () => {
         .select('*')
         .in('type', ['Salary Request', 'Wage Request', 'Employee Salary Request', 'Salary Advance'])
         .eq('admin_approved', true)
-        .eq('finance_approved', false)
-        .in('status', ['Pending Finance', 'Pending'])
+        .in('status', ['Pending Finance', 'Pending', 'Approved'])
 
       const { data: approvalData, error: approvalError } = await approvalQuery.order('created_at', { ascending: false })
 
