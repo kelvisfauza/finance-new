@@ -48,6 +48,8 @@ export const Expenses = () => {
   const isFinanceRole = employee?.role?.toLowerCase().includes('finance')
   const isAdminRole = ['Super Admin', 'Administrator', 'Manager'].includes(employee?.role || '')
 
+  console.log('User Role:', employee?.role, 'isFinanceRole:', isFinanceRole, 'isAdminRole:', isAdminRole)
+
   const allEmails = useMemo(() => {
     const emails: string[] = []
     expenses.forEach(exp => {
@@ -422,6 +424,8 @@ export const Expenses = () => {
                     <td className="py-3 px-4 text-center">
                       {(() => {
                         const displayStatus = getDisplayStatus(expense)
+
+                        console.log('Expense:', expense.title, 'Status:', expense.status, 'DisplayStatus:', displayStatus, 'Finance Approved:', expense.finance_approved, 'isFinanceRole:', isFinanceRole)
 
                         if (displayStatus === 'Approved' || displayStatus === 'Rejected') {
                           return null
