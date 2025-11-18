@@ -1,10 +1,9 @@
 export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-UG', {
-    style: 'currency',
-    currency: 'UGX',
+  const formatted = new Intl.NumberFormat('en-UG', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   }).format(amount)
+  return `Ugx ${formatted}`
 }
 
 export const formatDate = (date: string | Date): string => {

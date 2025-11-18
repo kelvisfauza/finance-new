@@ -526,7 +526,7 @@ export const HRPayments = () => {
 
         <div class="amount-section">
           <div style="font-size: 12px; color: #666; margin-bottom: 8px;">AMOUNT TO BE PAID</div>
-          <div class="amount">${formattedAmount.replace('UGX', 'Ugx')}</div>
+          <div class="amount">${formattedAmount}</div>
         </div>
 
         <div class="details-section">
