@@ -444,11 +444,11 @@ export const Requisitions = () => {
       </head>
       <body>
         <div class="header">
-          <img src="/logo without bc.png" alt="Great Pearl Coffee Finance Logo" onerror="this.style.display='none'">
+          <img src="/gpcf-logo copy.png" alt="Great Pearl Coffee Finance Logo" onerror="this.style.display='none'">
           <div class="header-text">
             <h1>GREAT PEARL COFFEE FINANCE</h1>
-            <div class="subtitle">P.O Box 12345, Kampala, Uganda</div>
-            <div class="subtitle">Tel: +256-XXX-XXXXXX | Email: info@greatpearlcoffee.com</div>
+            <div class="subtitle">Kasese, Uganda | www.greatpearlcoffee.com</div>
+            <div class="subtitle">Tel: +256 781 121 639 | Email: info@greatpearlcoffee.com</div>
           </div>
         </div>
         <div class="document-type">Requisition Voucher</div>
@@ -505,8 +505,8 @@ export const Requisitions = () => {
         </div>
 
         <div class="amount-section">
-          <div style="font-size: 14px; color: #666; margin-bottom: 10px;">AMOUNT TO BE PAID</div>
-          <div class="amount">${formattedAmount}</div>
+          <div style="font-size: 12px; color: #666; margin-bottom: 8px;">AMOUNT TO BE PAID</div>
+          <div class="amount">${formattedAmount.replace('UGX', 'Ugx')}</div>
         </div>
 
         <div class="details-section">
