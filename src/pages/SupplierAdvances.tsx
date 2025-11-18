@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { fetchSupplierAdvances, FirestoreAdvance } from '../lib/firestoreQueries'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
-import { HandCoins, Download, Search, CheckCircle, Clock } from 'lucide-react'
+import { HandCoins, Download, Search, CheckCircle, Clock, Printer } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 
 interface Advance {
@@ -127,6 +127,237 @@ export const SupplierAdvances = () => {
       'Cleared Date': advance.cleared_at ? formatDate(advance.cleared_at) : 'Not cleared'
     }))
     exportToCSV(exportData, `supplier-advances-${statusFilter}-${new Date().toISOString().split('T')[0]}`)
+  }
+
+  const handlePrint = (advance: Advance) => {
+    const printWindow = window.open('', '', 'width=800,height=600')
+    if (!printWindow) return
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Supplier Advance Voucher - ${advance.supplier_name}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .header h1 {
+            margin: 0;
+            color: #f97316;
+            font-size: 24px;
+          }
+          .header p {
+            margin: 5px 0;
+            color: #666;
+          }
+          .voucher-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+          }
+          .info-section {
+            flex: 1;
+          }
+          .info-row {
+            margin: 8px 0;
+          }
+          .label {
+            font-weight: bold;
+            color: #333;
+          }
+          .value {
+            color: #666;
+          }
+          .amount-section {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+          }
+          .amount {
+            font-size: 32px;
+            font-weight: bold;
+            color: #f97316;
+          }
+          .details-section {
+            margin: 30px 0;
+          }
+          .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 8px;
+          }
+          .balance-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+          }
+          .balance-box {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+          }
+          .balance-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 5px;
+          }
+          .balance-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #111827;
+          }
+          .signatures {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 60px;
+          }
+          .signature-box {
+            text-align: center;
+            flex: 1;
+            margin: 0 20px;
+          }
+          .signature-line {
+            border-top: 2px solid #333;
+            margin-top: 50px;
+            padding-top: 8px;
+          }
+          .footer {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 20px;
+          }
+          @media print {
+            body {
+              padding: 20px;
+            }
+            .no-print {
+              display: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>GREAT PEARL COFFEE FINANCE</h1>
+          <p>Supplier Advance Payment Voucher</p>
+        </div>
+
+        <div class="voucher-info">
+          <div class="info-section">
+            <div class="info-row">
+              <span class="label">Voucher No:</span>
+              <span class="value">#${advance.id.substring(0, 8).toUpperCase()}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Reference:</span>
+              <span class="value">${advance.reference || 'N/A'}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Date:</span>
+              <span class="value">${new Date(advance.created_at).toLocaleDateString()}</span>
+            </div>
+          </div>
+          <div class="info-section">
+            <div class="info-row">
+              <span class="label">Source:</span>
+              <span class="value">${advance.source}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Status:</span>
+              <span class="value" style="color: ${advance.status === 'Active' ? '#16a34a' : '#dc2626'}; font-weight: bold;">${advance.status}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="details-section">
+          <div class="section-title">Supplier Information</div>
+          <div class="info-row">
+            <span class="label">Supplier Name:</span>
+            <span class="value">${advance.supplier_name}</span>
+          </div>
+          ${advance.notes ? `
+          <div class="info-row">
+            <span class="label">Notes:</span>
+            <span class="value">${advance.notes}</span>
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="amount-section">
+          <div style="font-size: 14px; color: #666; margin-bottom: 10px;">TOTAL ADVANCE AMOUNT</div>
+          <div class="amount">${formatCurrency(advance.amount)}</div>
+        </div>
+
+        <div class="balance-info">
+          <div class="balance-box">
+            <div class="balance-label">RECOVERED</div>
+            <div class="balance-value" style="color: #059669;">${formatCurrency(advance.recovered)}</div>
+          </div>
+          <div class="balance-box">
+            <div class="balance-label">OUTSTANDING BALANCE</div>
+            <div class="balance-value" style="color: #dc2626;">${formatCurrency(advance.balance)}</div>
+          </div>
+        </div>
+
+        ${advance.cleared_at ? `
+        <div class="details-section">
+          <div class="section-title">Clearance Information</div>
+          <div class="info-row">
+            <span class="label">Cleared On:</span>
+            <span class="value">${new Date(advance.cleared_at).toLocaleString()}</span>
+          </div>
+        </div>
+        ` : ''}
+
+        <div class="signatures">
+          <div class="signature-box">
+            <div class="signature-line">
+              <strong>Supplier Signature</strong><br>
+              <span style="font-size: 12px;">${advance.supplier_name}</span>
+            </div>
+          </div>
+          <div class="signature-box">
+            <div class="signature-line">
+              <strong>Authorized By</strong><br>
+              <span style="font-size: 12px;">Finance Department</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>This is a computer-generated document. Printed on ${new Date().toLocaleString()}</p>
+          <p>Great Pearl Coffee Finance - Finance Management System</p>
+        </div>
+
+        <div class="no-print" style="text-align: center; margin-top: 30px;">
+          <button onclick="window.print()" style="padding: 10px 30px; background: #f97316; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">Print Voucher</button>
+          <button onclick="window.close()" style="padding: 10px 30px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-left: 10px;">Close</button>
+        </div>
+      </body>
+      </html>
+    `)
+
+    printWindow.document.close()
   }
 
   const totalPending = advances
@@ -261,12 +492,13 @@ export const SupplierAdvances = () => {
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Source</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Created</th>
+                <th className="text-center py-3 px-4 font-semibold text-gray-700">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredAdvances.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-gray-500">
+                  <td colSpan={9} className="text-center py-8 text-gray-500">
                     No advances found
                   </td>
                 </tr>
@@ -302,6 +534,15 @@ export const SupplierAdvances = () => {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-sm">{formatDate(advance.created_at)}</td>
+                    <td className="py-3 px-4 text-center">
+                      <button
+                        onClick={() => handlePrint(advance)}
+                        className="flex items-center px-3 py-1.5 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition-colors mx-auto"
+                      >
+                        <Printer className="w-4 h-4 mr-1" />
+                        Print
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
