@@ -316,6 +316,7 @@ export const Expenses = () => {
     const requester = getEmployee(expense.requestedby)
     const financeApprover = expense.finance_approved_by ? getEmployee(expense.finance_approved_by) : null
     const adminApprover = expense.admin_approved_by ? getEmployee(expense.admin_approved_by) : null
+    const formattedAmount = formatCurrency(expense.amount)
 
     setTimeout(() => {
       try {
@@ -507,7 +508,7 @@ export const Expenses = () => {
 
         <div class="amount-section">
           <div style="font-size: 14px; color: #666; margin-bottom: 10px;">AMOUNT TO BE PAID</div>
-          <div class="amount">${formatCurrency(expense.amount)}</div>
+          <div class="amount">${formattedAmount}</div>
         </div>
 
         <div class="details-section">

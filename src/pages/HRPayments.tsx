@@ -325,6 +325,8 @@ export const HRPayments = () => {
       return
     }
 
+    const formattedAmount = formatCurrency(payment.amount)
+
     setTimeout(() => {
       try {
         printWindow.document.open()
@@ -511,7 +513,7 @@ export const HRPayments = () => {
 
         <div class="amount-section">
           <div style="font-size: 14px; color: #666; margin-bottom: 10px;">AMOUNT TO BE PAID</div>
-          <div class="amount">${formatCurrency(payment.amount)}</div>
+          <div class="amount">${formattedAmount}</div>
         </div>
 
         <div class="details-section">
