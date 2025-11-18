@@ -595,18 +595,26 @@ export const Requisitions = () => {
       </html>
     `
 
-    const blob = new Blob([htmlContent], { type: 'text/html' })
-    const blobUrl = URL.createObjectURL(blob)
+    // Create a hidden iframe to print
+    const iframe = document.createElement('iframe')
+    iframe.style.display = 'none'
+    document.body.appendChild(iframe)
 
-    const printWindow = window.open(blobUrl, '_blank', 'width=800,height=600')
-    if (!printWindow) {
-      alert('Print window blocked. Please allow popups for this site.')
-      URL.revokeObjectURL(blobUrl)
-      return
-    }
+    const doc = iframe.contentWindow?.document
+    if (doc) {
+      doc.open()
+      doc.write(htmlContent)
+      doc.close()
 
-    printWindow.onload = () => {
-      URL.revokeObjectURL(blobUrl)
+      // Wait for content to load, then print
+      iframe.contentWindow?.focus()
+      setTimeout(() => {
+        iframe.contentWindow?.print()
+        // Remove iframe after printing
+        setTimeout(() => {
+          document.body.removeChild(iframe)
+        }, 1000)
+      }, 500)
     }
   }
 
