@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
-import { FileText, CheckCircle, Clock, XCircle, Download, Search } from 'lucide-react'
+import { FileText, CheckCircle, Clock, XCircle, Download, Search, Printer } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 import { useAuth } from '../contexts/AuthContext'
 import { useEmployeesByEmail } from '../hooks/useEmployeesByEmail'
@@ -303,6 +303,232 @@ export const Requisitions = () => {
     exportToCSV(exportData, `requisitions-${statusFilter}-${new Date().toISOString().split('T')[0]}`)
   }
 
+  const handlePrint = (requisition: Requisition) => {
+    const printWindow = window.open('', '', 'width=800,height=600')
+    if (!printWindow) return
+
+    const requester = getEmployee(requisition.requestedby)
+    const financeApprover = requisition.finance_approved_by ? getEmployee(requisition.finance_approved_by) : null
+    const adminApprover = requisition.admin_approved_by ? getEmployee(requisition.admin_approved_by) : null
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Requisition Voucher - ${requisition.title}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            max-width: 800px;
+            margin: 0 auto;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          .header h1 {
+            margin: 0;
+            color: #f97316;
+            font-size: 24px;
+          }
+          .header p {
+            margin: 5px 0;
+            color: #666;
+          }
+          .voucher-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+          }
+          .info-section {
+            flex: 1;
+          }
+          .info-row {
+            margin: 8px 0;
+          }
+          .label {
+            font-weight: bold;
+            color: #333;
+          }
+          .value {
+            color: #666;
+          }
+          .amount-section {
+            background: #f3f4f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+          }
+          .amount {
+            font-size: 32px;
+            font-weight: bold;
+            color: #f97316;
+          }
+          .details-section {
+            margin: 30px 0;
+          }
+          .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 8px;
+          }
+          .signatures {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 60px;
+          }
+          .signature-box {
+            text-align: center;
+            flex: 1;
+            margin: 0 20px;
+          }
+          .signature-line {
+            border-top: 2px solid #333;
+            margin-top: 50px;
+            padding-top: 8px;
+          }
+          .footer {
+            margin-top: 60px;
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 20px;
+          }
+          @media print {
+            body {
+              padding: 20px;
+            }
+            .no-print {
+              display: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>GREAT PEARL COFFEE FINANCE</h1>
+          <p>Requisition Voucher</p>
+        </div>
+
+        <div class="voucher-info">
+          <div class="info-section">
+            <div class="info-row">
+              <span class="label">Voucher No:</span>
+              <span class="value">#${requisition.id.substring(0, 8).toUpperCase()}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Date:</span>
+              <span class="value">${new Date().toLocaleDateString()}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Type:</span>
+              <span class="value">Requisition</span>
+            </div>
+          </div>
+          <div class="info-section">
+            <div class="info-row">
+              <span class="label">Department:</span>
+              <span class="value">${requisition.department}</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Status:</span>
+              <span class="value" style="color: #16a34a; font-weight: bold;">${requisition.status}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="details-section">
+          <div class="section-title">Requisition Details</div>
+          <div class="info-row">
+            <span class="label">Requested By:</span>
+            <span class="value">${requester?.name || requisition.requestedby}</span>
+          </div>
+          ${requester?.position ? `
+          <div class="info-row">
+            <span class="label">Position:</span>
+            <span class="value">${requester.position}</span>
+          </div>
+          ` : ''}
+          <div class="info-row">
+            <span class="label">Description:</span>
+            <span class="value">${requisition.title}</span>
+          </div>
+          ${requisition.description ? `
+          <div class="info-row">
+            <span class="label">Details:</span>
+            <span class="value">${requisition.description}</span>
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="amount-section">
+          <div style="font-size: 14px; color: #666; margin-bottom: 10px;">AMOUNT TO BE PAID</div>
+          <div class="amount">${formatCurrency(requisition.amount)}</div>
+        </div>
+
+        <div class="details-section">
+          <div class="section-title">Approval History</div>
+          ${requisition.admin_approved ? `
+          <div class="info-row">
+            <span class="label">Admin Approved By:</span>
+            <span class="value">${adminApprover?.name || requisition.admin_approved_by || 'N/A'}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Admin Approved At:</span>
+            <span class="value">${requisition.admin_approved_at ? new Date(requisition.admin_approved_at).toLocaleString() : 'N/A'}</span>
+          </div>
+          ` : ''}
+          ${requisition.finance_approved ? `
+          <div class="info-row">
+            <span class="label">Finance Approved By:</span>
+            <span class="value">${financeApprover?.name || requisition.finance_approved_by || 'N/A'}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Finance Approved At:</span>
+            <span class="value">${requisition.finance_approved_at ? new Date(requisition.finance_approved_at).toLocaleString() : 'N/A'}</span>
+          </div>
+          ` : ''}
+        </div>
+
+        <div class="signatures">
+          <div class="signature-box">
+            <div class="signature-line">
+              <strong>Received By</strong><br>
+              <span style="font-size: 12px;">Name & Signature</span>
+            </div>
+          </div>
+          <div class="signature-box">
+            <div class="signature-line">
+              <strong>Authorized By</strong><br>
+              <span style="font-size: 12px;">Finance Department</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>This is a computer-generated document. Printed on ${new Date().toLocaleString()}</p>
+          <p>Great Pearl Coffee Finance - Finance Management System</p>
+        </div>
+
+        <div class="no-print" style="text-align: center; margin-top: 30px;">
+          <button onclick="window.print()" style="padding: 10px 30px; background: #f97316; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">Print Voucher</button>
+          <button onclick="window.close()" style="padding: 10px 30px; background: #6b7280; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-left: 10px;">Close</button>
+        </div>
+      </body>
+      </html>
+    `)
+
+    printWindow.document.close()
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -433,7 +659,19 @@ export const Requisitions = () => {
                       {(() => {
                         const displayStatus = getDisplayStatus(requisition)
 
-                        if (displayStatus === 'Approved' || displayStatus === 'Rejected') {
+                        if (displayStatus === 'Approved') {
+                          return (
+                            <button
+                              onClick={() => handlePrint(requisition)}
+                              className="flex items-center px-3 py-1.5 bg-orange-600 text-white text-sm rounded hover:bg-orange-700 transition-colors"
+                            >
+                              <Printer className="w-4 h-4 mr-1" />
+                              Print
+                            </button>
+                          )
+                        }
+
+                        if (displayStatus === 'Rejected') {
                           return null
                         }
 
