@@ -319,18 +319,9 @@ export const HRPayments = () => {
   }
 
   const handlePrint = (payment: SalaryPayment) => {
-    const printWindow = window.open('', '', 'width=800,height=600')
-    if (!printWindow) {
-      alert('Print window blocked. Please allow popups for this site.')
-      return
-    }
-
     const formattedAmount = formatCurrency(payment.amount)
 
-    setTimeout(() => {
-      try {
-        printWindow.document.open()
-        printWindow.document.write(`
+    const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -575,15 +566,21 @@ export const HRPayments = () => {
         </div>
       </body>
       </html>
-        `)
-        printWindow.document.close()
-        printWindow.focus()
-      } catch (error) {
-        console.error('Print error:', error)
-        alert('Error generating print preview. Please try again.')
-        printWindow.close()
-      }
-    }, 100)
+    `
+
+    const blob = new Blob([htmlContent], { type: 'text/html' })
+    const blobUrl = URL.createObjectURL(blob)
+
+    const printWindow = window.open(blobUrl, '_blank', 'width=800,height=600')
+    if (!printWindow) {
+      alert('Print window blocked. Please allow popups for this site.')
+      URL.revokeObjectURL(blobUrl)
+      return
+    }
+
+    printWindow.onload = () => {
+      URL.revokeObjectURL(blobUrl)
+    }
   }
 
   return (

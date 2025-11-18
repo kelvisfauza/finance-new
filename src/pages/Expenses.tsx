@@ -307,21 +307,12 @@ export const Expenses = () => {
   }
 
   const handlePrint = (expense: Expense) => {
-    const printWindow = window.open('', '', 'width=800,height=600')
-    if (!printWindow) {
-      alert('Print window blocked. Please allow popups for this site.')
-      return
-    }
-
     const requester = getEmployee(expense.requestedby)
     const financeApprover = expense.finance_approved_by ? getEmployee(expense.finance_approved_by) : null
     const adminApprover = expense.admin_approved_by ? getEmployee(expense.admin_approved_by) : null
     const formattedAmount = formatCurrency(expense.amount)
 
-    setTimeout(() => {
-      try {
-        printWindow.document.open()
-        printWindow.document.write(`
+    const htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -581,15 +572,21 @@ export const Expenses = () => {
         </div>
       </body>
       </html>
-        `)
-        printWindow.document.close()
-        printWindow.focus()
-      } catch (error) {
-        console.error('Print error:', error)
-        alert('Error generating print preview. Please try again.')
-        printWindow.close()
-      }
-    }, 100)
+    `
+
+    const blob = new Blob([htmlContent], { type: 'text/html' })
+    const blobUrl = URL.createObjectURL(blob)
+
+    const printWindow = window.open(blobUrl, '_blank', 'width=800,height=600')
+    if (!printWindow) {
+      alert('Print window blocked. Please allow popups for this site.')
+      URL.revokeObjectURL(blobUrl)
+      return
+    }
+
+    printWindow.onload = () => {
+      URL.revokeObjectURL(blobUrl)
+    }
   }
 
   return (
