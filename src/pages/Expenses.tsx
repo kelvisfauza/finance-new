@@ -86,7 +86,7 @@ export const Expenses = () => {
       let query = supabase
         .from('approval_requests')
         .select('*')
-        .in('type', ['Expense Request', 'Company Expense', 'Field Financing Request'])
+        .in('type', ['Expense Request', 'Company Expense', 'Field Financing Request', 'Personal Expense'])
 
       if (isFinanceRole) {
         query = query

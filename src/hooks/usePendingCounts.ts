@@ -46,7 +46,7 @@ export const usePendingCounts = () => {
       if (error) throw error
 
       const expenseCount = data?.filter((r: any) =>
-        ['Expense Request', 'Company Expense', 'Field Financing Request'].includes(r.type)
+        ['Expense Request', 'Company Expense', 'Field Financing Request', 'Personal Expense'].includes(r.type)
       ).length || 0
 
       const requisitionCount = data?.filter((r: any) =>
