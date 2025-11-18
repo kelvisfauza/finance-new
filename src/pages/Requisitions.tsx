@@ -88,6 +88,7 @@ export const Requisitions = () => {
 
       if (isFinanceRole) {
         query = query
+          .eq('admin_approved', true)
           .eq('finance_approved', false)
           .eq('status', 'Pending Finance')
       }
@@ -112,10 +113,10 @@ export const Requisitions = () => {
 
   const getDisplayStatus = (req: Requisition) => {
     if (req.status === 'Rejected') return 'Rejected'
-    if (req.admin_approved || req.status === 'Approved') return 'Approved'
-    if (req.finance_approved && !req.admin_approved) return 'Pending Admin Approval'
-    if (isFinanceRole && !req.finance_approved) return 'Ready for Review'
-    return 'Pending Finance'
+    if (req.finance_approved || req.status === 'Approved') return 'Approved'
+    if (req.admin_approved && !req.finance_approved) return 'Pending Finance'
+    if (isFinanceRole && req.admin_approved && !req.finance_approved) return 'Ready for Review'
+    return 'Pending Admin'
   }
 
   const filterRequisitions = () => {
@@ -171,7 +172,7 @@ export const Requisitions = () => {
             finance_approved: true,
             finance_approved_by: employee.name,
             finance_approved_at: new Date().toISOString(),
-            status: 'Pending Admin Approval',
+            status: 'Approved',
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedRequisition.id)
@@ -227,7 +228,7 @@ export const Requisitions = () => {
             admin_approved: true,
             admin_approved_by: employee.name,
             admin_approved_at: new Date().toISOString(),
-            status: 'Approved',
+            status: 'Pending Finance',
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedRequisition.id)
@@ -235,11 +236,11 @@ export const Requisitions = () => {
         if (updateError) throw updateError
 
         await createNotification(
-          'Requisition Fully Approved',
-          `Your requisition "${selectedRequisition.title}" for ${formatCurrency(selectedRequisition.amount)} has been fully approved and will be paid.`,
+          'Requisition Approved by Admin',
+          `Your requisition "${selectedRequisition.title}" for ${formatCurrency(selectedRequisition.amount)} has been approved by Admin. Awaiting Finance review.`,
           {
             type: 'system',
-            priority: 'High',
+            priority: 'Medium',
             targetUserEmail: selectedRequisition.requestedby,
             metadata: {
               requisitionId: selectedRequisition.id,
@@ -341,8 +342,8 @@ export const Requisitions = () => {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
             >
               <option value="">All Status</option>
+              <option value="Pending Admin">Pending Admin</option>
               <option value="Pending Finance">Pending Finance</option>
-              <option value="Pending Admin Approval">Pending Admin Approval</option>
               <option value="Approved">Approved</option>
               <option value="Rejected">Rejected</option>
             </select>
@@ -411,7 +412,7 @@ export const Requisitions = () => {
                               ? 'bg-green-100 text-green-800'
                               : displayStatus === 'Rejected'
                               ? 'bg-red-100 text-red-800'
-                              : displayStatus === 'Pending Admin Approval'
+                              : displayStatus === 'Pending Finance'
                               ? 'bg-blue-100 text-blue-800'
                               : 'bg-yellow-100 text-yellow-800'
                           }`}>
@@ -436,15 +437,15 @@ export const Requisitions = () => {
                           return null
                         }
 
-                        if (displayStatus === 'Pending Finance' || displayStatus === 'Ready for Review') {
+                        if (displayStatus === 'Pending Admin') {
                           return (
                             <div className="flex justify-center gap-2">
-                              {isFinanceRole && (
+                              {isAdminRole && (
                                 <>
                                   <button
-                                    onClick={() => handleFinanceReview(requisition)}
+                                    onClick={() => handleAdminApprove(requisition)}
                                     disabled={processing}
-                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
                                   >
                                     Approve
                                   </button>
@@ -461,17 +462,17 @@ export const Requisitions = () => {
                           )
                         }
 
-                        if (displayStatus === 'Pending Admin Approval') {
+                        if (displayStatus === 'Pending Finance' || displayStatus === 'Ready for Review') {
                           return (
                             <div className="flex justify-center gap-2">
-                              {isAdminRole && (
+                              {isFinanceRole && (
                                 <>
                                   <button
-                                    onClick={() => handleAdminApprove(requisition)}
+                                    onClick={() => handleFinanceReview(requisition)}
                                     disabled={processing}
-                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                                   >
-                                    Final Approve
+                                    Final Approve & Release Cash
                                   </button>
                                   <button
                                     onClick={() => handleReject(requisition)}

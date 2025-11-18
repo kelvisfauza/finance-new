@@ -165,11 +165,11 @@ export const HRPayments = () => {
       const { error: updateError } = await supabase
         .from('money_requests')
         .update({
-          status: 'Pending Admin Approval',
+          status: 'Approved',
           finance_approved: true,
           finance_approved_at: new Date().toISOString(),
           finance_approved_by: user?.email || 'Finance',
-          approval_stage: 'pending_admin',
+          approval_stage: 'finance_approved',
           updated_at: new Date().toISOString()
         })
         .eq('id', payment.id)
@@ -218,49 +218,6 @@ export const HRPayments = () => {
 
       await fetchPayments()
       alert('Payment approved and processed successfully')
-    } catch (error: any) {
-      console.error('Error approving payment:', error)
-      alert('Failed to approve payment request')
-    } finally {
-      setProcessingId(null)
-    }
-  }
-
-  const handleAdminApprove = async (payment: SalaryPayment) => {
-    if (processingId) return
-
-    try {
-      setProcessingId(payment.id)
-
-      const { error: updateError } = await supabase
-        .from('money_requests')
-        .update({
-          status: 'Approved',
-          admin_approved_at: new Date().toISOString(),
-          admin_approved_by: employee?.name || user?.email || 'Admin',
-          approval_stage: 'completed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', payment.id)
-
-      if (updateError) throw updateError
-
-      const employeeName = payment.employee_name || payment.requested_by
-      const employeePhone = payment.employee_phone
-
-      if (employeePhone) {
-        await sendApprovalResponseSMS(
-          employeeName,
-          employeePhone,
-          payment.amount,
-          'approved',
-          user?.email || 'Admin',
-          payment.request_type
-        )
-      }
-
-      await fetchPayments()
-      alert('Payment fully approved and ready for disbursement')
     } catch (error: any) {
       console.error('Error approving payment:', error)
       alert('Failed to approve payment request')
@@ -457,25 +414,6 @@ export const HRPayments = () => {
                             >
                               <Check className="w-4 h-4 mr-1" />
                               Approve
-                            </button>
-                            <button
-                              onClick={() => handleReject(payment)}
-                              disabled={processingId === payment.id}
-                              className="flex items-center px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                            >
-                              <X className="w-4 h-4 mr-1" />
-                              Reject
-                            </button>
-                          </div>
-                        ) : payment.status === 'Pending Admin Approval' && isAdminRole ? (
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => handleAdminApprove(payment)}
-                              disabled={processingId === payment.id}
-                              className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                            >
-                              <Check className="w-4 h-4 mr-1" />
-                              Final Approve
                             </button>
                             <button
                               onClick={() => handleReject(payment)}
