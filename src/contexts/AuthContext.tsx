@@ -42,6 +42,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null)
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
+  const inactivityTimerRef = React.useRef<NodeJS.Timeout | null>(null)
+
+  const INACTIVITY_TIMEOUT = 20 * 60 * 1000 // 20 minutes in milliseconds
+
+  const resetInactivityTimer = React.useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current)
+    }
+
+    if (user) {
+      inactivityTimerRef.current = setTimeout(() => {
+        console.log('Auto-logout due to inactivity')
+        signOut()
+      }, INACTIVITY_TIMEOUT)
+    }
+  }, [user])
 
   useEffect(() => {
     checkUser()
@@ -50,13 +66,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!session?.user) {
         setUser(null)
         setEmployee(null)
+        if (inactivityTimerRef.current) {
+          clearTimeout(inactivityTimerRef.current)
+        }
       }
     })
 
     return () => {
       authListener.subscription.unsubscribe()
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current)
+      }
     }
   }, [])
+
+  useEffect(() => {
+    if (user) {
+      resetInactivityTimer()
+
+      const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click']
+
+      events.forEach(event => {
+        window.addEventListener(event, resetInactivityTimer)
+      })
+
+      return () => {
+        events.forEach(event => {
+          window.removeEventListener(event, resetInactivityTimer)
+        })
+      }
+    }
+  }, [user, resetInactivityTimer])
 
   const checkUser = async () => {
     const timeout = setTimeout(() => {
