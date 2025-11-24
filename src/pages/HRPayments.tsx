@@ -219,12 +219,13 @@ export const HRPayments = () => {
       const { error: cashError } = await supabase
         .from('finance_cash_transactions')
         .insert({
-          type: 'salary',
+          transaction_type: 'salary',
           amount: payment.amount,
-          description: `${payment.request_type}: ${payment.reason}`,
+          notes: `${payment.request_type}: ${payment.reason}`,
           reference: payment.id,
           created_by: user?.email || 'Finance',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          status: 'confirmed'
         })
 
       if (cashError) throw cashError

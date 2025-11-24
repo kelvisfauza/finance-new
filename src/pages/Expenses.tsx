@@ -197,12 +197,13 @@ export const Expenses = () => {
         const { error: cashError } = await supabase
           .from('finance_cash_transactions')
           .insert({
-            type: 'expense',
+            transaction_type: 'expense',
             amount: selectedExpense.amount,
-            description: `${selectedExpense.type}: ${selectedExpense.title}`,
+            notes: `${selectedExpense.type}: ${selectedExpense.title}`,
             reference: selectedExpense.id,
             created_by: employee.name,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            status: 'confirmed'
           })
 
         if (cashError) throw cashError
