@@ -207,19 +207,6 @@ export const HRPayments = () => {
 
       if (updateError) throw updateError
 
-      const { error: paymentError } = await supabase
-        .from('payment_records')
-        .insert({
-          payment_type: payment.request_type,
-          amount: payment.amount,
-          employee_id: payment.user_id,
-          description: payment.reason,
-          money_request_id: payment.id,
-          created_at: new Date().toISOString()
-        })
-
-      if (paymentError) throw paymentError
-
       const { error: cashError } = await supabase
         .from('finance_cash_transactions')
         .insert({
