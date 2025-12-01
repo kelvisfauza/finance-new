@@ -210,11 +210,28 @@ export const HRPayments = () => {
         throw new Error(`Failed to update approval: ${updateError.message}`)
       }
 
+      // Get current cash balance
+      const { data: balanceData, error: balanceError } = await supabase
+        .from('finance_cash_balance')
+        .select('current_balance')
+        .single()
+
+      if (balanceError) {
+        console.error('Balance fetch error:', balanceError)
+        throw new Error(`Failed to fetch cash balance: ${balanceError.message}`)
+      }
+
+      const currentBalance = parseFloat(balanceData.current_balance)
+      const paymentAmount = typeof payment.amount === 'string' ? parseFloat(payment.amount) : payment.amount
+      const balanceAfter = currentBalance - paymentAmount
+
+      // Record cash transaction
       const { error: cashError } = await supabase
         .from('finance_cash_transactions')
         .insert({
           transaction_type: 'salary',
-          amount: payment.amount,
+          amount: paymentAmount,
+          balance_after: balanceAfter,
           notes: `${payment.request_type}: ${payment.reason}`,
           reference: payment.id,
           created_by: user?.email || 'Finance',
@@ -225,6 +242,21 @@ export const HRPayments = () => {
       if (cashError) {
         console.error('Cash transaction error details:', cashError)
         throw new Error(`Failed to record cash transaction: ${cashError.message}`)
+      }
+
+      // Update cash balance
+      const { error: updateBalanceError } = await supabase
+        .from('finance_cash_balance')
+        .update({
+          current_balance: balanceAfter,
+          last_updated: new Date().toISOString(),
+          updated_by: user?.email || 'Finance'
+        })
+        .eq('singleton', true)
+
+      if (updateBalanceError) {
+        console.error('Balance update error:', updateBalanceError)
+        throw new Error(`Failed to update cash balance: ${updateBalanceError.message}`)
       }
 
       const employeeName = payment.employee_name || payment.requested_by
