@@ -39,6 +39,7 @@ export const HRPayments = () => {
   const [initialLoad, setInitialLoad] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [showApproved, setShowApproved] = useState(false)
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [printingPayment, setPrintingPayment] = useState<SalaryPayment | null>(null)
   const [employeeDetails, setEmployeeDetails] = useState<any>(null)
@@ -80,6 +81,10 @@ export const HRPayments = () => {
     filterPayments()
   }, [payments, searchTerm, statusFilter])
 
+  useEffect(() => {
+    fetchPayments()
+  }, [showApproved])
+
   const fetchPayments = async () => {
     try {
       if (initialLoad) {
@@ -90,8 +95,14 @@ export const HRPayments = () => {
       let moneyQuery = supabase
         .from('money_requests')
         .select('*')
-        .eq('finance_approved', false)
-        .in('status', ['approved', 'Approved', 'Pending Finance'])
+
+      if (showApproved) {
+        moneyQuery = moneyQuery.eq('finance_approved', true)
+      } else {
+        moneyQuery = moneyQuery
+          .eq('finance_approved', false)
+          .in('status', ['approved', 'Approved', 'Pending Finance'])
+      }
 
       const { data: moneyData, error: moneyError } = await moneyQuery.order('created_at', { ascending: false })
 
@@ -103,8 +114,14 @@ export const HRPayments = () => {
         .select('*')
         .in('type', ['Salary Request', 'Wage Request', 'Employee Salary Request', 'Salary Advance'])
         .eq('admin_approved', true)
-        .eq('finance_approved', false)
-        .in('status', ['Pending Finance', 'Pending'])
+
+      if (showApproved) {
+        approvalQuery = approvalQuery.eq('finance_approved', true)
+      } else {
+        approvalQuery = approvalQuery
+          .eq('finance_approved', false)
+          .in('status', ['Pending Finance', 'Pending'])
+      }
 
       const { data: approvalData, error: approvalError } = await approvalQuery.order('created_at', { ascending: false })
 
@@ -688,6 +705,18 @@ export const HRPayments = () => {
               <option value="completed">Completed</option>
             </select>
           </div>
+          <div>
+            <button
+              onClick={() => setShowApproved(!showApproved)}
+              className={`px-4 py-2 rounded-lg transition-colors ${
+                showApproved
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
+            >
+              {showApproved ? 'Show Pending' : 'Show Approved'}
+            </button>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -760,7 +789,7 @@ export const HRPayments = () => {
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        {(payment.status === 'Pending Finance' || payment.status === 'pending') && isFinanceRole ? (
+                        {!showApproved && (payment.status === 'Pending Finance' || payment.status === 'pending') && isFinanceRole ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => handleApprove(payment)}
@@ -779,7 +808,7 @@ export const HRPayments = () => {
                               Reject
                             </button>
                           </div>
-                        ) : payment.status.toLowerCase() === 'approved' ? (
+                        ) : showApproved || payment.status.toLowerCase() === 'approved' ? (
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => handlePrint(payment)}
