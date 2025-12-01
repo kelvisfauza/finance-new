@@ -205,7 +205,10 @@ export const HRPayments = () => {
         })
         .eq('id', payment.id)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error('Update error details:', updateError)
+        throw new Error(`Failed to update approval: ${updateError.message}`)
+      }
 
       const { error: cashError } = await supabase
         .from('finance_cash_transactions')
@@ -219,7 +222,10 @@ export const HRPayments = () => {
           status: 'confirmed'
         })
 
-      if (cashError) throw cashError
+      if (cashError) {
+        console.error('Cash transaction error details:', cashError)
+        throw new Error(`Failed to record cash transaction: ${cashError.message}`)
+      }
 
       const employeeName = payment.employee_name || payment.requested_by
       const employeePhone = payment.employee_phone
@@ -239,7 +245,7 @@ export const HRPayments = () => {
       alert('Payment approved and processed successfully')
     } catch (error: any) {
       console.error('Error approving payment:', error)
-      alert('Failed to approve payment request')
+      alert(`Failed to approve payment request: ${error.message || 'Unknown error'}`)
     } finally {
       setProcessingId(null)
     }
