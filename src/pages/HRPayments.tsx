@@ -75,15 +75,11 @@ export const HRPayments = () => {
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [showApproved])
 
   useEffect(() => {
     filterPayments()
   }, [payments, searchTerm, statusFilter])
-
-  useEffect(() => {
-    fetchPayments()
-  }, [showApproved])
 
   const fetchPayments = async () => {
     try {
