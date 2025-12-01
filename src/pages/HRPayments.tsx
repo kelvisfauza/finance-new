@@ -123,8 +123,9 @@ export const HRPayments = () => {
 
       if (approvalError) throw approvalError
 
-      // Combine both data sources
+      // Combine both data sources and sort by created_at (most recent first)
       const allPayments = [...(moneyData || []), ...(approvalData || [])]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
       if (allPayments.length > 0) {
         const userIds = allPayments.map((p: any) => p.user_id).filter(Boolean)
