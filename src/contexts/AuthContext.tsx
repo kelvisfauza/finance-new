@@ -169,6 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const hasAccess =
           employeeData.department === 'Finance' ||
           employeeData.permissions.includes('Finance') ||
+          employeeData.permissions.some((p: string) => p.startsWith('Finance:')) ||
           ['Super Admin', 'Manager', 'Administrator', 'Finance'].includes(employeeData.role)
 
         if (!hasAccess) {
@@ -205,6 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isFinanceAccess =
     employee?.department === 'Finance' ||
     employee?.permissions.includes('Finance') ||
+    employee?.permissions.some((p: string) => p.startsWith('Finance:')) ||
     ['Super Admin', 'Manager', 'Administrator', 'Finance'].includes(employee?.role || '')
 
   const value = {
