@@ -49,7 +49,8 @@ export const Requisitions = () => {
   const isFinanceRole = employee?.role?.toLowerCase().includes('finance') ||
     employee?.permissions?.includes('Finance') ||
     employee?.permissions?.includes('Finance Management') ||
-    employee?.permissions?.includes('Finance Approval')
+    employee?.permissions?.includes('Finance Approval') ||
+    employee?.permissions?.some((p: string) => p.startsWith('Finance:'))
   const isAdminRole = ['Super Admin', 'Administrator', 'Manager'].includes(employee?.role || '')
 
   const allEmails = useMemo(() => {
