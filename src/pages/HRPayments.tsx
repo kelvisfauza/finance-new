@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { Users, Download, Search, CheckCircle, Clock, Check, X, Printer } from 'lucide-react'
@@ -6,6 +6,7 @@ import { PermissionGate } from '../components/PermissionGate'
 import { useSMSNotifications } from '../hooks/useSMSNotifications'
 import { useAuth } from '../contexts/AuthContext'
 import { PayslipPrint } from '../components/PayslipPrint'
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
 
 interface SalaryPayment {
   id: string
@@ -68,21 +69,7 @@ export const HRPayments = () => {
     return payment.status
   }
 
-  useEffect(() => {
-    fetchPayments()
-
-    const interval = setInterval(() => {
-      fetchPayments()
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [showApproved])
-
-  useEffect(() => {
-    filterPayments()
-  }, [payments, searchTerm, statusFilter])
-
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     try {
       if (initialLoad) {
         setLoading(true)
@@ -178,7 +165,17 @@ export const HRPayments = () => {
         setInitialLoad(false)
       }
     }
-  }
+  }, [showApproved, initialLoad])
+
+  useEffect(() => {
+    fetchPayments()
+  }, [fetchPayments])
+
+  useRealtimeSubscription(['payment_records', 'approval_requests'], fetchPayments)
+
+  useEffect(() => {
+    filterPayments()
+  }, [payments, searchTerm, statusFilter])
 
   const filterPayments = () => {
     let filtered = payments

@@ -1,6 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { useFinanceStats } from '../hooks/useFinanceStats'
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
 import { formatCurrency } from '../lib/utils'
 import { MarketPricesCard } from '../components/MarketPricesCard'
 import {
@@ -78,19 +79,7 @@ export const Dashboard = () => {
   const [pendingFinanceCount, setPendingFinanceCount] = useState(0)
   const [pendingAdminCount, setPendingAdminCount] = useState(0)
 
-  useEffect(() => {
-    fetchMonthlyData()
-    fetchTodayData()
-    fetchApprovalCounts()
-  }, [])
-
-  useEffect(() => {
-    if (selectedMonthKey) {
-      fetchDailyData(selectedMonthKey)
-    }
-  }, [selectedMonthKey])
-
-  const fetchMonthlyData = async () => {
+  const fetchMonthlyData = useCallback(async () => {
     try {
       const { data: transactions, error } = await supabase
         .from('finance_cash_transactions')
@@ -136,9 +125,9 @@ export const Dashboard = () => {
     } catch (error) {
       console.error('Error fetching monthly data:', error)
     }
-  }
+  }, [selectedMonthKey])
 
-  const fetchDailyData = async (monthKey: string) => {
+  const fetchDailyData = useCallback(async (monthKey: string) => {
     try {
       const [year, month] = monthKey.split('-').map(Number)
       const startDate = new Date(year, month - 1, 1)
@@ -181,9 +170,9 @@ export const Dashboard = () => {
     } catch (error) {
       console.error('Error fetching daily data:', error)
     }
-  }
+  }, [])
 
-  const fetchTodayData = async () => {
+  const fetchTodayData = useCallback(async () => {
     try {
       const today = new Date()
       const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString()
@@ -213,9 +202,9 @@ export const Dashboard = () => {
     } catch (error) {
       console.error('Error fetching today data:', error)
     }
-  }
+  }, [])
 
-  const fetchApprovalCounts = async () => {
+  const fetchApprovalCounts = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('approval_requests')
@@ -236,7 +225,31 @@ export const Dashboard = () => {
     } catch (error) {
       console.error('Error fetching approval counts:', error)
     }
-  }
+  }, [])
+
+  const refreshData = useCallback(() => {
+    fetchMonthlyData()
+    fetchTodayData()
+    fetchApprovalCounts()
+    if (selectedMonthKey) {
+      fetchDailyData(selectedMonthKey)
+    }
+  }, [fetchMonthlyData, fetchTodayData, fetchApprovalCounts, fetchDailyData, selectedMonthKey])
+
+  useEffect(() => {
+    refreshData()
+  }, [refreshData])
+
+  useEffect(() => {
+    if (selectedMonthKey) {
+      fetchDailyData(selectedMonthKey)
+    }
+  }, [selectedMonthKey, fetchDailyData])
+
+  useRealtimeSubscription(
+    ['finance_cash_transactions', 'approval_requests'],
+    refreshData
+  )
 
   const currentMonth = useMemo(
     () => months.find(m => m.monthKey === selectedMonthKey) ?? months[0],

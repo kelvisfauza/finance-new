@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { Receipt, CheckCircle, Clock, XCircle, Download, Search, Printer } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
@@ -64,21 +65,7 @@ export const Expenses = () => {
 
   const { getEmployee } = useEmployeesByEmail(allEmails)
 
-  useEffect(() => {
-    fetchExpenses()
-
-    const interval = setInterval(() => {
-      fetchExpenses()
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    filterExpenses()
-  }, [expenses, searchTerm, statusFilter])
-
-  const fetchExpenses = async () => {
+  const fetchExpenses = useCallback(async () => {
     try {
       if (initialLoad) {
         setLoading(true)
@@ -111,17 +98,17 @@ export const Expenses = () => {
         setInitialLoad(false)
       }
     }
-  }
+  }, [isFinanceRole, initialLoad])
 
-  const getDisplayStatus = (expense: Expense) => {
+  const getDisplayStatus = useCallback((expense: Expense) => {
     if (expense.status === 'Rejected') return 'Rejected'
     if (expense.finance_approved || expense.status === 'Approved') return 'Approved'
     if (expense.admin_approved && !expense.finance_approved) return 'Pending Finance'
     if (isFinanceRole && expense.admin_approved && !expense.finance_approved) return 'Ready for Review'
     return 'Pending Admin'
-  }
+  }, [isFinanceRole])
 
-  const filterExpenses = () => {
+  const filterExpenses = useCallback(() => {
     let filtered = expenses
 
     if (statusFilter) {
@@ -142,7 +129,20 @@ export const Expenses = () => {
     }
 
     setFilteredExpenses(filtered)
-  }
+  }, [expenses, searchTerm, statusFilter, getDisplayStatus])
+
+  useEffect(() => {
+    fetchExpenses()
+  }, [fetchExpenses])
+
+  useEffect(() => {
+    filterExpenses()
+  }, [filterExpenses])
+
+  useRealtimeSubscription(
+    ['approval_requests'],
+    fetchExpenses
+  )
 
   const handleFinanceReview = (expense: Expense) => {
     setSelectedExpense(expense)

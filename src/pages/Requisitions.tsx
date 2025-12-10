@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { FileText, CheckCircle, Clock, XCircle, Download, Search, Printer } from 'lucide-react'
@@ -6,6 +6,7 @@ import { PermissionGate } from '../components/PermissionGate'
 import { useAuth } from '../contexts/AuthContext'
 import { useEmployeesByEmail } from '../hooks/useEmployeesByEmail'
 import { useFinanceNotifications } from '../hooks/useFinanceNotifications'
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
 
 interface Requisition {
   id: string
@@ -65,21 +66,7 @@ export const Requisitions = () => {
 
   const { getEmployee } = useEmployeesByEmail(allEmails)
 
-  useEffect(() => {
-    fetchRequisitions()
-
-    const interval = setInterval(() => {
-      fetchRequisitions()
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
-    filterRequisitions()
-  }, [requisitions, searchTerm, statusFilter])
-
-  const fetchRequisitions = async () => {
+  const fetchRequisitions = useCallback(async () => {
     try {
       if (initialLoad) {
         setLoading(true)
@@ -112,7 +99,17 @@ export const Requisitions = () => {
         setInitialLoad(false)
       }
     }
-  }
+  }, [isFinanceRole, initialLoad])
+
+  useEffect(() => {
+    fetchRequisitions()
+  }, [fetchRequisitions])
+
+  useRealtimeSubscription(['approval_requests', 'finance_cash_transactions'], fetchRequisitions)
+
+  useEffect(() => {
+    filterRequisitions()
+  }, [requisitions, searchTerm, statusFilter])
 
   const getDisplayStatus = (req: Requisition) => {
     if (req.status === 'Rejected') return 'Rejected'

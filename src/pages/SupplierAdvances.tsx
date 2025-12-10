@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { fetchSupplierAdvances, FirestoreAdvance } from '../lib/firestoreQueries'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { HandCoins, Download, Search, CheckCircle, Clock, Printer } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
 
 interface Advance {
   id: string
@@ -26,15 +27,7 @@ export const SupplierAdvances = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('Pending')
 
-  useEffect(() => {
-    fetchAdvances()
-  }, [])
-
-  useEffect(() => {
-    filterAdvances()
-  }, [advances, searchTerm, statusFilter])
-
-  const fetchAdvances = async () => {
+  const fetchAdvances = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -93,7 +86,17 @@ export const SupplierAdvances = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchAdvances()
+  }, [fetchAdvances])
+
+  useRealtimeSubscription(['supplier_advances'], fetchAdvances)
+
+  useEffect(() => {
+    filterAdvances()
+  }, [advances, searchTerm, statusFilter])
 
   const filterAdvances = () => {
     let filtered = advances

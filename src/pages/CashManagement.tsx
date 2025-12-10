@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
 import { formatCurrency, formatDate } from '../lib/utils'
 import { Wallet, TrendingUp, TrendingDown, DollarSign, AlertTriangle } from 'lucide-react'
 import { PendingCashDeposits } from '../components/PendingCashDeposits'
@@ -35,11 +36,7 @@ export const CashManagement = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'deposits' | 'payments'>('overview')
   const { settings, shouldWarnCashImbalance } = useFinanceSettings()
 
-  useEffect(() => {
-    fetchData()
-  }, [dateFilter])
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
 
@@ -68,7 +65,16 @@ export const CashManagement = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [dateFilter])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  useRealtimeSubscription(
+    ['finance_cash_transactions', 'finance_cash_balance'],
+    fetchData
+  )
 
   const todayTransactions = transactions.filter(
     t => t.confirmed_at && t.confirmed_at.split('T')[0] === new Date().toISOString().split('T')[0]

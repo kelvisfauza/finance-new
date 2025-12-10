@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { Coffee, DollarSign, CheckCircle, Clock, Download, Search } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
@@ -37,15 +38,7 @@ export const CoffeePayments = () => {
   const [notes, setNotes] = useState('')
   const [processing, setProcessing] = useState(false)
 
-  useEffect(() => {
-    fetchLots()
-  }, [statusFilter])
-
-  useEffect(() => {
-    filterLots()
-  }, [lots, searchTerm])
-
-  const fetchLots = async () => {
+  const fetchLots = useCallback(async () => {
     try {
       setLoading(true)
       let query = supabase
@@ -110,9 +103,9 @@ export const CoffeePayments = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [statusFilter])
 
-  const filterLots = () => {
+  const filterLots = useCallback(() => {
     let filtered = lots
 
     if (searchTerm) {
@@ -123,7 +116,20 @@ export const CoffeePayments = () => {
     }
 
     setFilteredLots(filtered)
-  }
+  }, [lots, searchTerm])
+
+  useEffect(() => {
+    fetchLots()
+  }, [fetchLots])
+
+  useEffect(() => {
+    filterLots()
+  }, [filterLots])
+
+  useRealtimeSubscription(
+    ['coffee_records', 'quality_assessments', 'supplier_payments'],
+    fetchLots
+  )
 
   const handleProcessPayment = (lot: CoffeeLot) => {
     setSelectedLot(lot)
