@@ -195,11 +195,25 @@ export const Requisitions = () => {
 
         if (expenseError) throw expenseError
 
+        // Get current cash balance
+        const { data: balanceData, error: balanceError } = await supabase
+          .from('finance_cash_balance')
+          .select('current_balance')
+          .single()
+
+        if (balanceError) throw new Error(`Failed to fetch cash balance: ${balanceError.message}`)
+
+        const currentBalance = parseFloat(balanceData.current_balance)
+        const requisitionAmount = typeof selectedRequisition.amount === 'string' ? parseFloat(selectedRequisition.amount) : selectedRequisition.amount
+        const balanceAfter = currentBalance - requisitionAmount
+
+        // Record cash transaction
         const { error: cashError } = await supabase
           .from('finance_cash_transactions')
           .insert({
             transaction_type: 'expense',
-            amount: selectedRequisition.amount,
+            amount: requisitionAmount,
+            balance_after: balanceAfter,
             notes: `Requisition: ${selectedRequisition.title}`,
             reference: selectedRequisition.id,
             created_by: employee.name,
@@ -208,6 +222,18 @@ export const Requisitions = () => {
           })
 
         if (cashError) throw cashError
+
+        // Update cash balance
+        const { error: updateBalanceError } = await supabase
+          .from('finance_cash_balance')
+          .update({
+            current_balance: balanceAfter,
+            last_updated: new Date().toISOString(),
+            updated_by: employee.name
+          })
+          .eq('singleton', true)
+
+        if (updateBalanceError) throw new Error(`Failed to update cash balance: ${updateBalanceError.message}`)
 
         await createNotification(
           'Requisition Approved',
