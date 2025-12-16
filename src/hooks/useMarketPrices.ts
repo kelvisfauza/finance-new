@@ -37,9 +37,9 @@ export const useMarketPrices = () => {
 
       if (data) {
         setPrices({
-          drugarLocal: Number(data.drugar_local) || 0,
+          drugarLocal: Number(data.arabica_buying_price) || 0,
           wugarLocal: Number(data.wugar_local) || 0,
-          robustaFaqLocal: Number(data.robusta_faq_local) || 0,
+          robustaFaqLocal: Number(data.robusta_buying_price) || 0,
           iceArabica: Number(data.ice_arabica) || 0,
           robusta: Number(data.robusta) || 0,
           exchangeRate: Number(data.exchange_rate) || 0,
