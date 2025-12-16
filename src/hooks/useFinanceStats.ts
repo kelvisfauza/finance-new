@@ -39,17 +39,17 @@ export const useFinanceStats = () => {
       const today = new Date().toISOString().split('T')[0]
 
       const [
-        coffeePayments,
+        coffeeRecords,
         cashBalance,
         cashTransactions,
         advances,
-        expenses,
+        expenseApprovals,
         todayTransactions
       ] = await Promise.all([
         supabase
-          .from('payment_records')
-          .select('amount')
-          .eq('status', 'Pending'),
+          .from('coffee_records')
+          .select('batch_number')
+          .eq('status', 'submitted_to_finance'),
 
         supabase
           .from('finance_cash_balance')
@@ -66,9 +66,12 @@ export const useFinanceStats = () => {
           .eq('status', 'Pending'),
 
         supabase
-          .from('finance_expenses')
-          .select('amount')
-          .eq('status', 'Pending'),
+          .from('approval_requests')
+          .select('amount, type')
+          .eq('admin_approved', true)
+          .eq('finance_approved', false)
+          .in('status', ['Pending Finance', 'Pending'])
+          .in('type', ['Expense Request', 'Company Expense', 'Field Financing Request', 'Personal Expense']),
 
         supabase
           .from('finance_transactions')
@@ -95,17 +98,32 @@ export const useFinanceStats = () => {
       const availableCash = Math.max(0, netBalance)
       const advanceAmount = netBalance < 0 ? Math.abs(netBalance) : 0
 
-      const pendingCoffeeAmount = coffeePayments.data?.reduce((sum: number, item: any) => sum + Number(item.amount), 0) || 0
-      const pendingExpenseAmount = expenses.data?.reduce((sum: number, item: any) => sum + Number(item.amount), 0) || 0
+      let pendingCoffeeAmount = 0
+      let coffeeLotsCount = 0
+
+      if (coffeeRecords.data && coffeeRecords.data.length > 0) {
+        const batchNumbers = coffeeRecords.data.map((r: any) => r.batch_number)
+        const { data: assessments } = await supabase
+          .from('quality_assessments')
+          .select('batch_number, final_price')
+          .in('batch_number', batchNumbers)
+
+        if (assessments) {
+          coffeeLotsCount = assessments.length
+          pendingCoffeeAmount = assessments.reduce((sum: number, item: any) => sum + Number(item.final_price || 0), 0)
+        }
+      }
+
+      const pendingExpenseAmount = expenseApprovals.data?.reduce((sum: number, item: any) => sum + Number(item.amount), 0) || 0
       const completedTodayAmount = todayTransactions.data?.reduce((sum: number, item: any) => sum + Number(item.amount), 0) || 0
 
       setStats({
-        pendingCoffeePayments: coffeePayments.data?.length || 0,
+        pendingCoffeePayments: coffeeLotsCount,
         pendingCoffeeAmount,
         availableCash,
         advanceAmount,
         netCash: netBalance,
-        pendingExpenseRequests: expenses.data?.length || 0,
+        pendingExpenseRequests: expenseApprovals.data?.length || 0,
         pendingExpenseAmount,
         completedToday: todayTransactions.data?.length || 0,
         completedTodayAmount,
