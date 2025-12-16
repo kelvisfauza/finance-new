@@ -96,43 +96,16 @@ export const PendingCoffeePayments = () => {
       const processedBy = user?.email || 'Finance'
 
       const { error: updateError } = await supabase
-        .from('coffee_records')
+        .from('finance_coffee_lots')
         .update({
-          status: 'inventory'
+          finance_status: 'PAID',
+          updated_at: new Date().toISOString()
         })
         .eq('id', lot.id)
 
       if (updateError) throw updateError
 
-      let financeLotId: string
-
-      const { data: existingLot } = await supabase
-        .from('finance_coffee_lots')
-        .select('id')
-        .eq('coffee_record_id', lot.id)
-        .maybeSingle()
-
-      if (existingLot) {
-        financeLotId = existingLot.id
-      } else {
-        const { data: newLot, error: lotError } = await supabase
-          .from('finance_coffee_lots')
-          .insert({
-            coffee_record_id: lot.id,
-            supplier_id: lot.supplier_id,
-            assessed_by: lot.assessed_by || processedBy,
-            assessed_at: new Date().toISOString(),
-            quality_json: {},
-            unit_price_ugx: lot.final_price || lot.suggested_price || 0,
-            quantity_kg: lot.kilograms,
-            finance_status: 'PAID'
-          })
-          .select('id')
-          .single()
-
-        if (lotError || !newLot) throw lotError || new Error('Failed to create finance lot')
-        financeLotId = newLot.id
-      }
+      const financeLotId = lot.id
 
       const { data: existingPayment } = await supabase
         .from('supplier_payments')

@@ -44,7 +44,7 @@ export function usePendingCoffeePayments() {
         supplier_name: lot.supplier?.name || 'N/A',
         supplier_id: lot.supplier_id,
         kilograms: Number(lot.quantity_kg),
-        final_price: Number(lot.total_amount_ugx),
+        final_price: Number(lot.unit_price_ugx),
         suggested_price: Number(lot.unit_price_ugx),
         assessed_by: lot.assessed_by,
         status: lot.finance_status,
