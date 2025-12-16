@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useFinanceStats } from '../hooks/useFinanceStats'
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
@@ -18,7 +19,7 @@ import {
   AlertTriangle
 } from 'lucide-react'
 
-const StatCard = ({ title, value, icon: Icon, trend, color }: any) => {
+const StatCard = ({ title, value, icon: Icon, trend, color, onClick }: any) => {
   const colors = {
     emerald: 'bg-emerald-100 text-emerald-700',
     blue: 'bg-blue-100 text-blue-700',
@@ -28,8 +29,14 @@ const StatCard = ({ title, value, icon: Icon, trend, color }: any) => {
     green: 'bg-green-100 text-green-700'
   }
 
+  const CardWrapper = onClick ? 'button' : 'div'
+  const clickableClass = onClick ? 'cursor-pointer hover:shadow-lg' : ''
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+    <CardWrapper
+      onClick={onClick}
+      className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow w-full text-left ${clickableClass}`}
+    >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-sm font-medium text-gray-600 mb-1">{title}</p>
@@ -44,7 +51,7 @@ const StatCard = ({ title, value, icon: Icon, trend, color }: any) => {
           <Icon className="w-6 h-6" />
         </div>
       </div>
-    </div>
+    </CardWrapper>
   )
 }
 
@@ -70,6 +77,7 @@ const currency = (value: number) =>
   }).format(value)
 
 export const Dashboard = () => {
+  const navigate = useNavigate()
   const stats = useFinanceStats()
   const [months, setMonths] = useState<MonthlySummary[]>([])
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>('')
@@ -473,12 +481,14 @@ export const Dashboard = () => {
           value={`${pendingFinanceCount + pendingAdminCount} items`}
           icon={AlertTriangle}
           color="orange"
+          onClick={() => navigate('/requisitions')}
         />
         <StatCard
           title="Pending Expense Requests"
           value={`${stats.pendingExpenseRequests} requests`}
           icon={Receipt}
           color="purple"
+          onClick={() => navigate('/expenses')}
         />
       </div>
 
@@ -524,26 +534,32 @@ export const Dashboard = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Approvals & Alerts</h3>
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+            <button
+              onClick={() => navigate('/requisitions')}
+              className="w-full flex items-center justify-between p-3 bg-amber-50 rounded-lg hover:bg-amber-100 transition-colors cursor-pointer"
+            >
               <div className="flex items-center">
                 <AlertTriangle className="w-5 h-5 text-amber-700 mr-3" />
-                <div>
+                <div className="text-left">
                   <p className="text-sm font-medium text-gray-900">Pending Finance Review</p>
                   <p className="text-xs text-gray-600">Waiting for finance approval</p>
                 </div>
               </div>
               <span className="text-lg font-bold text-amber-700">{pendingFinanceCount}</span>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+            </button>
+            <button
+              onClick={() => navigate('/requisitions')}
+              className="w-full flex items-center justify-between p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors cursor-pointer"
+            >
               <div className="flex items-center">
                 <CheckCircle className="w-5 h-5 text-blue-700 mr-3" />
-                <div>
+                <div className="text-left">
                   <p className="text-sm font-medium text-gray-900">Pending Admin Approval</p>
                   <p className="text-xs text-gray-600">Ready for final approval</p>
                 </div>
               </div>
               <span className="text-lg font-bold text-blue-700">{pendingAdminCount}</span>
-            </div>
+            </button>
             <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
               <div className="flex items-center">
                 <CheckCircle className="w-5 h-5 text-green-700 mr-3" />
