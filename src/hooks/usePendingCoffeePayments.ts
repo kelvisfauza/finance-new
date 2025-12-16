@@ -19,55 +19,38 @@ export function usePendingCoffeePayments() {
   return useQuery({
     queryKey: ['pending-coffee-payments'],
     queryFn: async () => {
-      const { data: coffeeRecords, error: coffeeError } = await supabase
-        .from('coffee_records')
-        .select('*')
-        .in('status', ['submitted_to_finance'])
-        .order('created_at', { ascending: false })
+      const { data: coffeeLots, error } = await supabase
+        .from('finance_coffee_lots')
+        .select(`
+          *,
+          supplier:suppliers(name, code),
+          quality_assessment:quality_assessments(batch_number)
+        `)
+        .eq('finance_status', 'READY_FOR_FINANCE')
+        .order('assessed_at', { ascending: false })
 
-      if (coffeeError) {
-        console.error('Failed to load coffee records', coffeeError)
-        throw coffeeError
+      if (error) {
+        console.error('Failed to load coffee lots', error)
+        throw error
       }
 
-      if (!coffeeRecords || coffeeRecords.length === 0) {
+      if (!coffeeLots || coffeeLots.length === 0) {
         return []
       }
 
-      const batchNumbers = coffeeRecords.map((r: any) => r.batch_number)
-
-      const { data: assessments, error: assessmentError } = await supabase
-        .from('quality_assessments')
-        .select('batch_number, final_price, suggested_price, assessed_by')
-        .in('batch_number', batchNumbers)
-
-      if (assessmentError) {
-        console.error('Failed to load quality assessments', assessmentError)
-      }
-
-      const assessmentMap = new Map()
-      if (assessments) {
-        assessments.forEach((a: any) => {
-          assessmentMap.set(a.batch_number, a)
-        })
-      }
-
-      const transformed = coffeeRecords.map((record: any) => {
-        const assessment = assessmentMap.get(record.batch_number)
-        return {
-          id: record.id,
-          batch_number: record.batch_number,
-          supplier_name: record.supplier_name,
-          supplier_id: record.supplier_id,
-          kilograms: Number(record.kilograms),
-          final_price: assessment?.final_price || 0,
-          suggested_price: assessment?.suggested_price || 0,
-          assessed_by: assessment?.assessed_by,
-          status: record.status,
-          date: record.date,
-          created_at: record.created_at,
-        }
-      })
+      const transformed = coffeeLots.map((lot: any) => ({
+        id: lot.id,
+        batch_number: lot.quality_assessment?.batch_number || 'N/A',
+        supplier_name: lot.supplier?.name || 'N/A',
+        supplier_id: lot.supplier_id,
+        kilograms: Number(lot.quantity_kg),
+        final_price: Number(lot.total_amount_ugx),
+        suggested_price: Number(lot.unit_price_ugx),
+        assessed_by: lot.assessed_by,
+        status: lot.finance_status,
+        date: lot.assessed_at,
+        created_at: lot.created_at,
+      }))
 
       return transformed as PendingCoffeeLot[]
     },

@@ -11,6 +11,9 @@ interface CoffeeLot {
   quality_assessment_id?: string
   coffee_record_id?: string
   supplier_id?: string
+  supplier_name?: string
+  supplier_code?: string
+  batch_number?: string
   assessed_by: string
   assessed_at: string
   quality_json: any
@@ -42,59 +45,45 @@ export const CoffeePayments = () => {
     try {
       setLoading(true)
       let query = supabase
-        .from('coffee_records')
-        .select('*')
+        .from('finance_coffee_lots')
+        .select(`
+          *,
+          supplier:suppliers(name, code),
+          quality_assessment:quality_assessments(batch_number)
+        `)
 
-      if (statusFilter === 'READY_FOR_FINANCE') {
-        query = query.eq('status', 'submitted_to_finance')
-      } else if (statusFilter === 'PAID') {
-        query = query.eq('status', 'inventory')
-      } else if (statusFilter === 'APPROVED_FOR_PAYMENT') {
-        query = query.eq('status', 'approved')
-      } else if (statusFilter) {
-        query = query.eq('status', statusFilter)
+      if (statusFilter && statusFilter !== 'ALL') {
+        query = query.eq('finance_status', statusFilter)
       }
 
-      const { data: coffeeRecords, error } = await query.order('created_at', { ascending: false })
+      const { data: coffeeLots, error } = await query.order('assessed_at', { ascending: false })
 
       if (error) throw error
 
-      if (!coffeeRecords || coffeeRecords.length === 0) {
+      if (!coffeeLots || coffeeLots.length === 0) {
         setLots([])
         return
       }
 
-      const batchNumbers = coffeeRecords.map((r: any) => r.batch_number)
-
-      const { data: assessments } = await supabase
-        .from('quality_assessments')
-        .select('batch_number, final_price, suggested_price, assessed_by, date_assessed')
-        .in('batch_number', batchNumbers)
-
-      const assessmentMap = new Map()
-      if (assessments) {
-        assessments.forEach((a: any) => {
-          assessmentMap.set(a.batch_number, a)
-        })
-      }
-
-      const transformed = coffeeRecords.map((record: any) => {
-        const assessment = assessmentMap.get(record.batch_number)
-        const unitPrice = assessment?.final_price || assessment?.suggested_price || 0
-        return {
-          id: record.id,
-          coffee_record_id: record.batch_number,
-          supplier_id: record.supplier_id,
-          assessed_by: assessment?.assessed_by || 'N/A',
-          assessed_at: assessment?.date_assessed || record.date,
-          quantity_kg: Number(record.kilograms),
-          unit_price_ugx: unitPrice,
-          total_amount_ugx: Number(record.kilograms) * unitPrice,
-          finance_status: record.status === 'inventory' ? 'PAID' : record.status === 'submitted_to_finance' ? 'READY_FOR_FINANCE' : 'APPROVED_FOR_PAYMENT',
-          created_at: record.created_at,
-          updated_at: record.updated_at
-        }
-      })
+      const transformed = coffeeLots.map((lot: any) => ({
+        id: lot.id,
+        quality_assessment_id: lot.quality_assessment_id,
+        coffee_record_id: lot.coffee_record_id,
+        supplier_id: lot.supplier_id,
+        supplier_name: lot.supplier?.name || 'N/A',
+        supplier_code: lot.supplier?.code || 'N/A',
+        batch_number: lot.quality_assessment?.batch_number || 'N/A',
+        assessed_by: lot.assessed_by,
+        assessed_at: lot.assessed_at,
+        quality_json: lot.quality_json,
+        unit_price_ugx: Number(lot.unit_price_ugx),
+        quantity_kg: Number(lot.quantity_kg),
+        total_amount_ugx: Number(lot.total_amount_ugx),
+        finance_status: lot.finance_status,
+        finance_notes: lot.finance_notes,
+        created_at: lot.created_at,
+        updated_at: lot.updated_at
+      }))
 
       setLots(transformed)
     } catch (error: any) {
@@ -110,7 +99,9 @@ export const CoffeePayments = () => {
 
     if (searchTerm) {
       filtered = filtered.filter(lot =>
-        lot.coffee_record_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lot.supplier_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lot.supplier_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lot.batch_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         lot.assessed_by?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
@@ -127,7 +118,7 @@ export const CoffeePayments = () => {
   }, [filterLots])
 
   useRealtimeSubscription(
-    ['coffee_records', 'quality_assessments', 'supplier_payments'],
+    ['finance_coffee_lots', 'supplier_payments'],
     fetchLots
   )
 
@@ -149,53 +140,24 @@ export const CoffeePayments = () => {
     try {
       setProcessing(true)
 
+      const { data: { user } } = await supabase.auth.getUser()
+      const processedBy = user?.email || 'Finance'
+
       const { error: updateError } = await supabase
-        .from('coffee_records')
+        .from('finance_coffee_lots')
         .update({
-          status: 'inventory',
+          finance_status: 'PAID',
+          finance_notes: notes || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedLot.id)
 
       if (updateError) throw updateError
 
-      const { data: { user } } = await supabase.auth.getUser()
-      const processedBy = user?.email || 'Finance'
-
-      let financeLotId: string
-
-      const { data: existingLot } = await supabase
-        .from('finance_coffee_lots')
-        .select('id')
-        .eq('coffee_record_id', selectedLot.id)
-        .maybeSingle()
-
-      if (existingLot) {
-        financeLotId = existingLot.id
-      } else {
-        const { data: newLot, error: lotError } = await supabase
-          .from('finance_coffee_lots')
-          .insert({
-            coffee_record_id: selectedLot.id,
-            supplier_id: selectedLot.supplier_id,
-            assessed_by: selectedLot.assessed_by,
-            assessed_at: selectedLot.assessed_at,
-            quality_json: {},
-            unit_price_ugx: selectedLot.unit_price_ugx,
-            quantity_kg: selectedLot.quantity_kg,
-            finance_status: 'PAID'
-          })
-          .select('id')
-          .single()
-
-        if (lotError || !newLot) throw lotError || new Error('Failed to create finance lot')
-        financeLotId = newLot.id
-      }
-
       const { error: paymentError } = await supabase
         .from('supplier_payments')
         .insert({
-          lot_id: financeLotId,
+          lot_id: selectedLot.id,
           supplier_id: selectedLot.supplier_id,
           method: paymentMethod.toUpperCase(),
           status: 'POSTED',
@@ -205,7 +167,7 @@ export const CoffeePayments = () => {
           gross_payable_ugx: amount,
           advance_recovered_ugx: 0,
           amount_paid_ugx: amount,
-          reference: selectedLot.coffee_record_id || '',
+          reference: referenceNumber || selectedLot.batch_number || '',
           notes: notes || null
         })
 
@@ -227,8 +189,8 @@ export const CoffeePayments = () => {
           transaction_type: 'PAYMENT',
           amount: -amount,
           balance_after: newBalance,
-          reference: selectedLot.coffee_record_id,
-          notes: `Coffee payment - ${selectedLot.quantity_kg}kg @ ${selectedLot.unit_price_ugx} UGX/kg`,
+          reference: referenceNumber || selectedLot.batch_number || selectedLot.id,
+          notes: `Coffee payment to ${selectedLot.supplier_name} - ${selectedLot.quantity_kg}kg @ ${selectedLot.unit_price_ugx} UGX/kg`,
           status: 'confirmed',
           confirmed_at: new Date().toISOString(),
           confirmed_by: processedBy,
@@ -255,7 +217,7 @@ export const CoffeePayments = () => {
           type: 'payment_ready',
           priority: 'High',
           metadata: {
-            lotId: financeLotId,
+            lotId: selectedLot.id,
             coffeeRecordId: selectedLot.coffee_record_id,
             amount: amount,
             quantityKg: selectedLot.quantity_kg,
