@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
-import { db } from '../lib/firebase'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabaseClient'
+import { useRealtimeSubscription } from './useRealtimeSubscription'
 
 export interface MarketPrices {
   drugarLocal: number
@@ -24,49 +25,43 @@ export const useMarketPrices = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const unsubscribe = db
-      .collection('market_prices')
-      .doc('reference_prices')
-      .onSnapshot(
-        (doc) => {
-          if (doc.exists) {
-            const data = doc.data() as any
+  const fetchPrices = useCallback(async () => {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('market_prices')
+        .select('*')
+        .eq('price_type', 'reference_prices')
+        .maybeSingle()
 
-            let lastUpdatedStr: string | undefined
-            const timestamp = data.lastUpdated || data.updatedAt
-            if (timestamp) {
-              if (typeof timestamp === 'object' && 'toDate' in timestamp) {
-                lastUpdatedStr = timestamp.toDate().toISOString()
-              } else if (typeof timestamp === 'string') {
-                lastUpdatedStr = timestamp
-              }
-            }
+      if (fetchError) throw fetchError
 
-            setPrices({
-              drugarLocal: data.drugarLocal || 0,
-              wugarLocal: data.wugarLocal || 0,
-              robustaFaqLocal: data.robustaFaqLocal || 0,
-              iceArabica: data.iceArabica || 0,
-              robusta: data.robusta || 0,
-              exchangeRate: data.exchangeRate || 0,
-              lastUpdated: lastUpdatedStr
-            })
-            setError(null)
-          } else {
-            setError('No price data available')
-          }
-          setLoading(false)
-        },
-        (err) => {
-          console.error('Error fetching market prices:', err)
-          setError('Failed to fetch prices')
-          setLoading(false)
-        }
-      )
-
-    return () => unsubscribe()
+      if (data) {
+        setPrices({
+          drugarLocal: Number(data.drugar_local) || 0,
+          wugarLocal: Number(data.wugar_local) || 0,
+          robustaFaqLocal: Number(data.robusta_faq_local) || 0,
+          iceArabica: Number(data.ice_arabica) || 0,
+          robusta: Number(data.robusta) || 0,
+          exchangeRate: Number(data.exchange_rate) || 0,
+          lastUpdated: data.last_updated || data.updated_at
+        })
+        setError(null)
+      } else {
+        setError('No price data available')
+      }
+    } catch (err) {
+      console.error('Error fetching market prices:', err)
+      setError('Failed to fetch prices')
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  useEffect(() => {
+    fetchPrices()
+  }, [fetchPrices])
+
+  useRealtimeSubscription(['market_prices'], fetchPrices)
 
   return { prices, loading, error }
 }
