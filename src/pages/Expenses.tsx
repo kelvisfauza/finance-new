@@ -76,12 +76,6 @@ export const Expenses = () => {
         .select('*')
         .in('type', ['Expense Request', 'Company Expense', 'Field Financing Request', 'Personal Expense'])
 
-      if (isFinanceRole) {
-        query = query
-          .eq('admin_approved', true)
-          .in('status', ['Pending Finance', 'Approved'])
-      }
-
       const { data, error } = await query.order('created_at', { ascending: false })
 
       if (error) throw error
