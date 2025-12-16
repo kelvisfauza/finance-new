@@ -96,58 +96,34 @@ export const PendingCoffeePayments = () => {
       const processedBy = user?.email || 'Finance'
 
       const { error: updateError } = await supabase
-        .from('finance_coffee_lots')
+        .from('payment_records')
         .update({
-          finance_status: 'PAID',
+          status: 'Paid',
+          amount_paid: lot.finalAmount,
+          balance: 0,
           updated_at: new Date().toISOString()
         })
         .eq('id', lot.id)
 
       if (updateError) throw updateError
 
-      const financeLotId = lot.id
-
-      const { data: existingPayment } = await supabase
+      const { error: paymentError } = await supabase
         .from('supplier_payments')
-        .select('id')
-        .eq('reference', lot.batch_number)
-        .maybeSingle()
+        .insert({
+          supplier_id: lot.supplier_id,
+          method: 'CASH',
+          status: 'POSTED',
+          requested_by: processedBy,
+          approved_by: processedBy,
+          approved_at: new Date().toISOString(),
+          gross_payable_ugx: lot.totalAmount,
+          advance_recovered_ugx: lot.advanceAmount || 0,
+          amount_paid_ugx: lot.finalAmount,
+          reference: lot.batch_number,
+          notes: `Coffee payment for ${lot.supplier_name} - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`
+        })
 
-      if (existingPayment) {
-        const { error: paymentError } = await supabase
-          .from('supplier_payments')
-          .update({
-            status: 'POSTED',
-            approved_by: processedBy,
-            approved_at: new Date().toISOString(),
-            gross_payable_ugx: lot.totalAmount,
-            advance_recovered_ugx: lot.advanceAmount || 0,
-            amount_paid_ugx: lot.finalAmount,
-            notes: `Coffee payment for ${lot.supplier_name} - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`
-          })
-          .eq('id', existingPayment.id)
-
-        if (paymentError) throw paymentError
-      } else {
-        const { error: paymentError } = await supabase
-          .from('supplier_payments')
-          .insert({
-            lot_id: financeLotId,
-            supplier_id: lot.supplier_id,
-            method: 'CASH',
-            status: 'POSTED',
-            requested_by: processedBy,
-            approved_by: processedBy,
-            approved_at: new Date().toISOString(),
-            gross_payable_ugx: lot.totalAmount,
-            advance_recovered_ugx: lot.advanceAmount || 0,
-            amount_paid_ugx: lot.finalAmount,
-            reference: lot.batch_number,
-            notes: `Coffee payment for ${lot.supplier_name} - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`
-          })
-
-        if (paymentError) throw paymentError
-      }
+      if (paymentError) throw paymentError
 
       if (lot.advanceAmount > 0 && lot.supplier_id) {
         const { error: advanceError } = await supabase

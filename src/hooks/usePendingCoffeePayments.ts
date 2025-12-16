@@ -19,38 +19,61 @@ export function usePendingCoffeePayments() {
   return useQuery({
     queryKey: ['pending-coffee-payments'],
     queryFn: async () => {
-      const { data: coffeeLots, error } = await supabase
-        .from('finance_coffee_lots')
+      const { data: paymentRecords, error } = await supabase
+        .from('payment_records')
         .select(`
-          *,
-          supplier:suppliers(name, code),
-          quality_assessment:quality_assessments(batch_number)
+          id,
+          supplier,
+          amount,
+          status,
+          batch_number,
+          created_at,
+          quality_assessment:quality_assessments!payment_records_quality_assessment_id_fkey(
+            final_price,
+            suggested_price,
+            assessed_by
+          )
         `)
-        .eq('finance_status', 'READY_FOR_FINANCE')
-        .order('assessed_at', { ascending: false })
+        .eq('status', 'Pending')
+        .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Failed to load coffee lots', error)
+        console.error('Failed to load payment records', error)
         throw error
       }
 
-      if (!coffeeLots || coffeeLots.length === 0) {
+      if (!paymentRecords || paymentRecords.length === 0) {
         return []
       }
 
-      const transformed = coffeeLots.map((lot: any) => ({
-        id: lot.id,
-        batch_number: lot.quality_assessment?.batch_number || 'N/A',
-        supplier_name: lot.supplier?.name || 'N/A',
-        supplier_id: lot.supplier_id,
-        kilograms: Number(lot.quantity_kg),
-        final_price: Number(lot.unit_price_ugx),
-        suggested_price: Number(lot.unit_price_ugx),
-        assessed_by: lot.assessed_by,
-        status: lot.finance_status,
-        date: lot.assessed_at,
-        created_at: lot.created_at,
-      }))
+      const batchNumbers = paymentRecords.map((pr: any) => pr.batch_number).filter(Boolean)
+
+      const { data: coffeeRecords } = await supabase
+        .from('coffee_records')
+        .select('batch_number, kilograms, supplier_id')
+        .in('batch_number', batchNumbers)
+
+      const coffeeMap = new Map()
+      coffeeRecords?.forEach((cr: any) => {
+        coffeeMap.set(cr.batch_number, cr)
+      })
+
+      const transformed = paymentRecords.map((record: any) => {
+        const coffeeRecord = coffeeMap.get(record.batch_number)
+        return {
+          id: record.id,
+          batch_number: record.batch_number || 'N/A',
+          supplier_name: record.supplier || 'N/A',
+          supplier_id: coffeeRecord?.supplier_id,
+          kilograms: Number(coffeeRecord?.kilograms || 0),
+          final_price: Number(record.quality_assessment?.final_price || 0),
+          suggested_price: Number(record.quality_assessment?.suggested_price || 0),
+          assessed_by: record.quality_assessment?.assessed_by,
+          status: record.status,
+          date: record.created_at,
+          created_at: record.created_at,
+        }
+      })
 
       return transformed as PendingCoffeeLot[]
     },
