@@ -1,10 +1,18 @@
 import { useState } from 'react'
-import { FileText } from 'lucide-react'
+import { FileText, Users } from 'lucide-react'
 import { FinanceMonthlyReport } from '../components/FinanceMonthlyReport'
 import { PurchaseReport } from '../components/PurchaseReport'
+import { HRSalaryTab } from '../components/reports/HRSalaryTab'
+import { ReportFilters } from '../components/reports/ReportFilters'
 
 export const ReportsNew = () => {
-  const [activeTab, setActiveTab] = useState<'finance' | 'purchases'>('finance')
+  const [activeTab, setActiveTab] = useState<'finance' | 'purchases' | 'hr'>('finance')
+  const [hrFilters, setHrFilters] = useState<ReportFilters>({
+    dateFrom: '',
+    dateTo: '',
+    department: '',
+    status: 'All'
+  })
 
   return (
     <div className="space-y-6">
@@ -57,11 +65,23 @@ export const ReportsNew = () => {
             <FileText className="w-4 h-4 mr-2" />
             Purchase Report
           </button>
+          <button
+            onClick={() => setActiveTab('hr')}
+            className={`px-6 py-3 font-medium transition-colors flex items-center ${
+              activeTab === 'hr'
+                ? 'text-green-700 border-b-2 border-green-700'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Users className="w-4 h-4 mr-2" />
+            HR Payments
+          </button>
         </div>
 
         <div className="p-6 print:p-0">
           {activeTab === 'finance' && <FinanceMonthlyReport />}
           {activeTab === 'purchases' && <PurchaseReport />}
+          {activeTab === 'hr' && <HRSalaryTab filters={hrFilters} />}
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { ReportFilters } from './ReportFilters'
 import { formatCurrency } from '../../lib/utils'
 import { format } from 'date-fns'
-import { Users, TrendingUp } from 'lucide-react'
+import { Users, TrendingUp, Printer } from 'lucide-react'
 
 interface SalaryRecord {
   id: string
@@ -98,6 +98,10 @@ export const HRSalaryTab = ({ filters }: HRSalaryTabProps) => {
     }
   }
 
+  const handlePrint = () => {
+    window.print()
+  }
+
   if (loading) {
     return (
       <div className="animate-pulse space-y-4">
@@ -113,6 +117,16 @@ export const HRSalaryTab = ({ filters }: HRSalaryTabProps) => {
 
   return (
     <div className="space-y-6">
+      <div className="print:hidden flex justify-end mb-4">
+        <button
+          onClick={handlePrint}
+          className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+        >
+          <Printer className="w-5 h-5 mr-2" />
+          Print Report
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-2">
