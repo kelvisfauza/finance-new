@@ -41,10 +41,12 @@ export const HRSalaryTab = ({ filters }: HRSalaryTabProps) => {
         .not('finance_approved_at', 'is', null)
 
       if (filters.dateFrom) {
-        query = query.gte('finance_approved_at', filters.dateFrom)
+        const dateStart = `${filters.dateFrom}T00:00:00`
+        query = query.gte('finance_approved_at', dateStart)
       }
       if (filters.dateTo) {
-        query = query.lte('finance_approved_at', filters.dateTo)
+        const dateEnd = `${filters.dateTo}T23:59:59`
+        query = query.lte('finance_approved_at', dateEnd)
       }
       if (filters.department) {
         query = query.eq('department', filters.department)
