@@ -102,6 +102,17 @@ export const HRSalaryTab = ({ filters }: HRSalaryTabProps) => {
     window.print()
   }
 
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A'
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) return 'N/A'
+      return format(date, 'MMM d, yyyy')
+    } catch {
+      return 'N/A'
+    }
+  }
+
   if (loading) {
     return (
       <div className="animate-pulse space-y-4">
@@ -195,13 +206,13 @@ export const HRSalaryTab = ({ filters }: HRSalaryTabProps) => {
                     {formatCurrency(record.amount)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {record.dateRequested ? format(new Date(record.dateRequested), 'MMM d, yyyy') : 'N/A'}
+                    {formatDate(record.dateRequested)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     <div>
                       <div>{record.financeApprovedBy || 'N/A'}</div>
                       <div className="text-xs">
-                        {record.financeApprovedAt ? format(new Date(record.financeApprovedAt), 'MMM d, yyyy') : 'N/A'}
+                        {formatDate(record.financeApprovedAt)}
                       </div>
                     </div>
                   </td>
