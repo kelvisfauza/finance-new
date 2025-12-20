@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Users } from 'lucide-react'
 import { FinanceMonthlyReport } from '../components/FinanceMonthlyReport'
 import { PurchaseReport } from '../components/PurchaseReport'
 import { HRSalaryTab } from '../components/reports/HRSalaryTab'
-import { ReportFilters } from '../components/reports/ReportFilters'
+import { ReportFilters, ReportFiltersComponent } from '../components/reports/ReportFilters'
+import { supabase } from '../lib/supabaseClient'
 
 export const ReportsNew = () => {
   const [activeTab, setActiveTab] = useState<'finance' | 'purchases' | 'hr'>('finance')
@@ -13,6 +14,27 @@ export const ReportsNew = () => {
     department: '',
     status: 'All'
   })
+  const [departments, setDepartments] = useState<string[]>([])
+
+  useEffect(() => {
+    fetchDepartments()
+  }, [])
+
+  const fetchDepartments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('approval_requests')
+        .select('department')
+        .not('department', 'is', null)
+
+      if (error) throw error
+
+      const uniqueDepts = Array.from(new Set(data?.map((d: any) => d.department).filter(Boolean))) as string[]
+      setDepartments(uniqueDepts)
+    } catch (error) {
+      console.error('Error fetching departments:', error)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -81,7 +103,16 @@ export const ReportsNew = () => {
         <div className="p-6 print:p-0">
           {activeTab === 'finance' && <FinanceMonthlyReport />}
           {activeTab === 'purchases' && <PurchaseReport />}
-          {activeTab === 'hr' && <HRSalaryTab filters={hrFilters} />}
+          {activeTab === 'hr' && (
+            <>
+              <ReportFiltersComponent
+                filters={hrFilters}
+                onChange={setHrFilters}
+                departments={departments}
+              />
+              <HRSalaryTab filters={hrFilters} />
+            </>
+          )}
         </div>
       </div>
     </div>

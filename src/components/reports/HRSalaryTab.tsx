@@ -62,10 +62,12 @@ export const HRSalaryTab = ({ filters }: HRSalaryTabProps) => {
       const salaryRecords: SalaryRecord[] = []
 
       data?.forEach((req: any) => {
-        const isSalary = req.type === 'salary' ||
-          req.type === 'wage' ||
-          req.type === 'Employee Salary Request' ||
-          req.type === 'Salary Payment'
+        const isSalary = req.type === 'Employee Salary Request' ||
+          req.type === 'Salary Request' ||
+          req.type === 'Salary Payment' ||
+          req.type === 'Salary Advance' ||
+          req.type === 'salary' ||
+          req.type === 'wage'
 
         if (isSalary) {
           salaryRecords.push({
