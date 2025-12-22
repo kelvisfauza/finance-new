@@ -21,12 +21,12 @@ import {
 
 const StatCard = ({ title, value, icon: Icon, trend, color, onClick }: any) => {
   const colors = {
-    emerald: 'bg-emerald-100 text-emerald-700',
-    blue: 'bg-blue-100 text-blue-700',
-    orange: 'bg-orange-100 text-orange-700',
-    purple: 'bg-purple-100 text-purple-700',
-    red: 'bg-red-100 text-red-700',
-    green: 'bg-green-100 text-green-700'
+    emerald: 'bg-gradient-to-br from-green-400 to-emerald-600 text-white',
+    blue: 'bg-gradient-to-br from-blue-400 to-blue-600 text-white',
+    orange: 'bg-gradient-to-br from-orange-400 to-red-500 text-white',
+    purple: 'bg-gradient-to-br from-purple-400 to-purple-600 text-white',
+    red: 'bg-gradient-to-br from-red-500 to-red-700 text-white',
+    green: 'bg-gradient-to-br from-green-500 to-green-700 text-white'
   }
 
   const CardWrapper = onClick ? 'button' : 'div'
@@ -35,7 +35,7 @@ const StatCard = ({ title, value, icon: Icon, trend, color, onClick }: any) => {
   return (
     <CardWrapper
       onClick={onClick}
-      className={`bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow w-full text-left ${clickableClass}`}
+      className={`bg-white rounded-xl shadow-lg border-2 border-yellow-400 p-6 hover:shadow-2xl hover:scale-105 transition-all w-full text-left ${clickableClass}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
@@ -47,8 +47,8 @@ const StatCard = ({ title, value, icon: Icon, trend, color, onClick }: any) => {
             </p>
           )}
         </div>
-        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${colors[color as keyof typeof colors]}`}>
-          <Icon className="w-6 h-6" />
+        <div className={`w-12 h-12 rounded-lg flex items-center justify-center shadow-lg ${colors[color as keyof typeof colors]}`}>
+          <Icon className="w-6 h-6 drop-shadow" />
         </div>
       </div>
     </CardWrapper>
@@ -298,14 +298,25 @@ export const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Finance Dashboard</h1>
-        <p className="text-gray-600">Overview of financial operations and cash flow</p>
+      <div className="bg-gradient-to-r from-red-600 via-green-600 to-red-600 rounded-2xl shadow-2xl p-8 border-4 border-yellow-400 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full opacity-10">
+          <div className="text-6xl absolute top-2 left-4">🎄</div>
+          <div className="text-6xl absolute top-2 right-4">🎅</div>
+          <div className="text-4xl absolute bottom-2 left-12">⛄</div>
+          <div className="text-4xl absolute bottom-2 right-12">🎁</div>
+          <div className="text-3xl absolute top-1/2 left-1/4">❄️</div>
+          <div className="text-3xl absolute top-1/3 right-1/4">⭐</div>
+        </div>
+        <div className="relative z-10 text-center">
+          <h1 className="text-4xl font-bold text-white mb-2 drop-shadow-lg">🎄 Finance Dashboard 🎄</h1>
+          <p className="text-yellow-200 text-lg font-medium drop-shadow">Wishing you a Merry Christmas and Prosperous New Year!</p>
+          <p className="text-white/90 mt-2">Overview of financial operations and cash flow</p>
+        </div>
       </div>
 
       {currentMonth && months.length > 0 && (
         <>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-gradient-to-r from-orange-50 to-orange-100 p-4 rounded-xl border border-orange-200">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-gradient-to-r from-red-100 via-yellow-50 to-green-100 p-4 rounded-xl border-2 border-yellow-400 shadow-lg">
             <div>
               <p className="text-sm text-gray-600 font-medium">Monthly Overview</p>
               <p className="text-lg font-bold text-gray-900">{currentMonth.label}</p>
@@ -315,10 +326,10 @@ export const Dashboard = () => {
                 <button
                   key={month.monthKey}
                   onClick={() => setSelectedMonthKey(month.monthKey)}
-                  className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                  className={`rounded-full border-2 px-4 py-2 text-sm font-medium transition-all transform hover:scale-110 ${
                     selectedMonthKey === month.monthKey
-                      ? 'border-orange-500 bg-orange-500 text-white shadow-md'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-orange-300'
+                      ? 'border-red-600 bg-gradient-to-r from-red-600 to-green-600 text-white shadow-lg'
+                      : 'border-yellow-400 bg-white text-gray-700 hover:border-red-500'
                   }`}
                 >
                   {month.label}
@@ -328,71 +339,69 @@ export const Dashboard = () => {
           </div>
 
           <div className="grid gap-6 md:grid-cols-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-gradient-to-br from-green-500 to-green-700 rounded-xl shadow-lg border-2 border-yellow-400 p-6 text-white transform hover:scale-105 transition-all">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Cash In</p>
-                  <p className="mt-2 text-2xl font-bold text-gray-900">
+                  <p className="text-xs uppercase tracking-wide text-green-100 font-semibold">Cash In 💰</p>
+                  <p className="mt-2 text-2xl font-bold drop-shadow">
                     {currency(currentMonth.totalIn)}
                   </p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-                  <ArrowUpRight className="h-6 w-6 text-green-600" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm shadow-lg">
+                  <ArrowUpRight className="h-6 w-6 text-white" />
                 </div>
               </div>
-              <p className="mt-3 text-xs text-gray-600">Deposits & income this month</p>
+              <p className="mt-3 text-xs text-green-100">Deposits & income this month</p>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-gradient-to-br from-red-500 to-red-700 rounded-xl shadow-lg border-2 border-yellow-400 p-6 text-white transform hover:scale-105 transition-all">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Cash Out</p>
-                  <p className="mt-2 text-2xl font-bold text-gray-900">
+                  <p className="text-xs uppercase tracking-wide text-red-100 font-semibold">Cash Out 💳</p>
+                  <p className="mt-2 text-2xl font-bold drop-shadow">
                     {currency(currentMonth.totalOut)}
                   </p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-                  <ArrowDownRight className="h-6 w-6 text-red-600" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm shadow-lg">
+                  <ArrowDownRight className="h-6 w-6 text-white" />
                 </div>
               </div>
-              <p className="mt-3 text-xs text-gray-600">Payments & expenses this month</p>
+              <p className="mt-3 text-xs text-red-100">Payments & expenses this month</p>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl shadow-lg border-2 border-yellow-400 p-6 text-white transform hover:scale-105 transition-all">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Net Position</p>
-                  <p className={`mt-2 text-2xl font-bold ${monthNetTrendColor}`}>
+                  <p className="text-xs uppercase tracking-wide text-blue-100 font-semibold">Net Position 📊</p>
+                  <p className="mt-2 text-2xl font-bold drop-shadow">
                     {currency(currentMonth.net)}
                   </p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-                  <Wallet className="h-6 w-6 text-blue-600" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm shadow-lg">
+                  <Wallet className="h-6 w-6 text-white" />
                 </div>
               </div>
-              <p className="mt-3 text-xs text-gray-600">Net cash for {currentMonth.label}</p>
+              <p className="mt-3 text-xs text-blue-100">Net cash for {currentMonth.label}</p>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg border-2 border-yellow-400 p-6 text-white transform hover:scale-105 transition-all">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">Today's Net</p>
-                  <p className={`mt-2 text-2xl font-bold ${
-                    todayCashIn - todayCashOut >= 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
+                  <p className="text-xs uppercase tracking-wide text-amber-100 font-semibold">Today's Net 📈</p>
+                  <p className="mt-2 text-2xl font-bold drop-shadow">
                     {currency(todayCashIn - todayCashOut)}
                   </p>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
-                  <TrendingUp className="h-6 w-6 text-amber-600" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm shadow-lg">
+                  <TrendingUp className="h-6 w-6 text-white" />
                 </div>
               </div>
-              <p className="mt-3 text-xs text-gray-600">Cash movement today</p>
+              <p className="mt-3 text-xs text-amber-100">Cash movement today</p>
             </div>
           </div>
 
           {dailyData.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="bg-white rounded-xl shadow-lg border-2 border-yellow-400 p-6">
               <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-gray-500" />
@@ -495,8 +504,8 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <MarketPricesCard />
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div className="bg-white rounded-xl shadow-lg border-2 border-yellow-400 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">🎁 Quick Actions</h3>
           <div className="space-y-3">
             <a
               href="/coffee-payments"
@@ -531,8 +540,8 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Approvals & Alerts</h3>
+        <div className="bg-white rounded-xl shadow-lg border-2 border-yellow-400 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">🔔 Approvals & Alerts</h3>
           <div className="space-y-3">
             <button
               onClick={() => navigate('/requisitions')}
