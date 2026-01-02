@@ -33,7 +33,7 @@ export const Navigation = () => {
   }
 
   return (
-    <nav className="space-y-2">
+    <nav className="space-y-1">
       {navItems.map((item) => {
         const Icon = item.icon
         const count = getCount(item.countKey)
@@ -43,21 +43,21 @@ export const Navigation = () => {
             to={item.path}
             end={item.path === '/'}
             className={({ isActive }) =>
-              `flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-all transform hover:scale-105 ${
+              `flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
                 isActive
-                  ? 'bg-yellow-300 text-red-900 shadow-lg border-2 border-yellow-500'
-                  : 'text-white hover:bg-white/20 backdrop-blur-sm border-2 border-transparent'
+                  ? 'bg-emerald-100 text-emerald-900'
+                  : 'text-gray-700 hover:bg-gray-100'
               }`
             }
           >
             {({ isActive }) => (
               <>
                 <div className="flex items-center">
-                  <Icon className={`w-5 h-5 mr-3 ${isActive ? 'text-red-700' : 'text-yellow-300'}`} />
-                  <span className="drop-shadow">{item.label}</span>
+                  <Icon className="w-5 h-5 mr-3" />
+                  {item.label}
                 </div>
                 {count > 0 && (
-                  <span className="bg-yellow-400 text-red-900 text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center shadow-md animate-pulse">
+                  <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
                     {count}
                   </span>
                 )}
@@ -71,19 +71,15 @@ export const Navigation = () => {
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-all transform hover:scale-105 ${
+            `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
               isActive
-                ? 'bg-yellow-300 text-red-900 shadow-lg border-2 border-yellow-500'
-                : 'text-white hover:bg-white/20 backdrop-blur-sm border-2 border-transparent'
+                ? 'bg-emerald-100 text-emerald-900'
+                : 'text-gray-700 hover:bg-gray-100'
             }`
           }
         >
-          {({ isActive }) => (
-            <>
-              <Settings className={`w-5 h-5 mr-3 ${isActive ? 'text-red-700' : 'text-yellow-300'}`} />
-              <span className="drop-shadow">Settings</span>
-            </>
-          )}
+          <Settings className="w-5 h-5 mr-3" />
+          Settings
         </NavLink>
       </PermissionGate>
     </nav>
