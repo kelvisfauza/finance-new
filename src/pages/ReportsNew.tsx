@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
-import { FileText, Users } from 'lucide-react'
+import { FileText, Users, TrendingUp, Scale } from 'lucide-react'
 import { FinanceMonthlyReport } from '../components/FinanceMonthlyReport'
 import { PurchaseReport } from '../components/PurchaseReport'
 import { HRSalaryTab } from '../components/reports/HRSalaryTab'
+import { IncomeStatementTab } from '../components/reports/IncomeStatementTab'
+import { BalanceSheetTab } from '../components/reports/BalanceSheetTab'
 import { ReportFilters, ReportFiltersComponent } from '../components/reports/ReportFilters'
 import { supabase } from '../lib/supabaseClient'
 
 export const ReportsNew = () => {
-  const [activeTab, setActiveTab] = useState<'finance' | 'purchases' | 'hr'>('finance')
+  const [activeTab, setActiveTab] = useState<'finance' | 'purchases' | 'hr' | 'income-statement' | 'balance-sheet'>('finance')
   const [hrFilters, setHrFilters] = useState<ReportFilters>({
     dateFrom: '',
     dateTo: '',
@@ -64,7 +66,7 @@ export const ReportsNew = () => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 print:border-0 print:shadow-none">
-        <div className="flex border-b border-gray-200 print:hidden">
+        <div className="flex flex-wrap border-b border-gray-200 print:hidden">
           <button
             onClick={() => setActiveTab('finance')}
             className={`px-6 py-3 font-medium transition-colors flex items-center ${
@@ -98,6 +100,28 @@ export const ReportsNew = () => {
             <Users className="w-4 h-4 mr-2" />
             HR Payments
           </button>
+          <button
+            onClick={() => setActiveTab('income-statement')}
+            className={`px-6 py-3 font-medium transition-colors flex items-center ${
+              activeTab === 'income-statement'
+                ? 'text-green-700 border-b-2 border-green-700'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Income Statement
+          </button>
+          <button
+            onClick={() => setActiveTab('balance-sheet')}
+            className={`px-6 py-3 font-medium transition-colors flex items-center ${
+              activeTab === 'balance-sheet'
+                ? 'text-green-700 border-b-2 border-green-700'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Scale className="w-4 h-4 mr-2" />
+            Balance Sheet
+          </button>
         </div>
 
         <div className="p-6 print:p-0">
@@ -113,6 +137,8 @@ export const ReportsNew = () => {
               <HRSalaryTab filters={hrFilters} />
             </>
           )}
+          {activeTab === 'income-statement' && <IncomeStatementTab />}
+          {activeTab === 'balance-sheet' && <BalanceSheetTab />}
         </div>
       </div>
     </div>
