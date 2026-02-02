@@ -8,8 +8,10 @@ The Verification Module is a comprehensive system integrated into the Great Pear
 
 ### Public Features
 - **Verification Search Page** (`/verify`) - Anyone can search for a verification code
+- **Live QR Code Scanner** - Built-in camera scanner for instant QR code verification
+- **Manual Code Entry** - Alternative option to type verification codes manually
 - **Verification Result Page** (`/verify/:code`) - Displays verification status and details
-- **QR Code Scanning** - QR codes automatically redirect to verification results
+- **Mobile Optimized** - Responsive design works on all devices
 
 ### Admin Features (Protected)
 - **Verification Management** (`/admin/verifications`) - Create, view, and manage verifications
@@ -97,18 +99,34 @@ The Verification Module is a comprehensive system integrated into the Great Pear
 
 ### For Public Users
 
-#### Verifying a Code
+#### Using the Built-in QR Scanner (Recommended)
 
 1. Visit `/verify` on your domain
-2. Enter the verification code from the document or ID card
-3. Click "Verify Now"
-4. View the verification results
+2. Click the blue "Scan QR Code" button
+3. Allow camera access when prompted
+4. Position the QR code within the scanning frame
+5. The system automatically detects and verifies the code
+6. View the verification results instantly
 
-#### Scanning QR Codes
+**Camera Permissions:**
+- First-time users will be asked to grant camera access
+- The camera is used only for scanning and no images are stored
+- Works on mobile devices and desktop computers with cameras
 
-1. Scan the QR code with any QR code reader
-2. The QR code automatically opens the verification result page
-3. View the verification status and details
+#### Manual Code Entry (Alternative)
+
+1. Visit `/verify` on your domain
+2. Scroll to the "OR ENTER MANUALLY" section
+3. Type the verification code from the document or ID card
+4. Click "Verify Now"
+5. View the verification results
+
+#### Scanning with External QR Readers
+
+1. Use any QR code reader app
+2. Scan the QR code on the document
+3. The QR code automatically opens the verification result page
+4. View the verification status and details
 
 ## Verification Statuses
 
@@ -246,7 +264,8 @@ Displayed on all verification pages:
 - **Database**: Supabase (PostgreSQL)
 - **Styling**: Tailwind CSS
 - **Icons**: Lucide React
-- **QR Codes**: QR Server API
+- **QR Code Generation**: QR Server API
+- **QR Code Scanning**: html5-qrcode
 - **Date Formatting**: date-fns
 
 ## Troubleshooting
@@ -256,12 +275,36 @@ Displayed on all verification pages:
 - Verify the code exists in the admin panel
 - Ensure there are no extra spaces
 
-### QR Code Not Working
+### QR Scanner Issues
+
+#### Camera Not Working
+- Ensure browser has permission to access camera
+- Check device camera permissions in system settings
+- Try using a different browser (Chrome/Safari recommended)
+- Verify camera is not being used by another application
+- Use HTTPS connection (camera access requires secure connection)
+
+#### QR Code Not Scanning
+- Ensure good lighting conditions
+- Hold the QR code steady within the scanning frame
+- Try adjusting the distance from the camera
+- Clean the camera lens if blurry
+- Ensure QR code is not damaged or obscured
+- Try manual entry if scanning continues to fail
+
+#### Permission Denied Error
+- Clear browser cache and cookies
+- Reload the page and grant permissions again
+- Check browser settings for camera permissions
+- Try opening the page in an incognito/private window
+
+### Downloaded QR Code Not Working
 - Confirm QR code points to correct domain
 - Test QR code with multiple scanners
 - Re-download QR code if corrupted
+- Ensure QR code image is high quality when printed
 
-### Access Denied
+### Access Denied (Admin Panel)
 - Ensure user has admin privileges
 - Check that user is logged in
 - Verify role permissions in auth system
@@ -269,13 +312,18 @@ Displayed on all verification pages:
 ## Future Enhancements
 
 Potential features for future development:
-- Photo upload for employee IDs
+- Photo upload for employee IDs (with cropping)
 - Document PDF attachment and access
 - PIN-protected document downloads
-- Bulk import/export functionality
+- Bulk import/export functionality (CSV/Excel)
 - Email notifications on verification
 - SMS verification notifications
 - Verification expiry reminders
 - Advanced search and filtering
 - Statistics and analytics dashboard
 - Multi-language support
+- Offline QR code generation
+- Batch QR code printing
+- Digital signature verification
+- Verification history tracking per code
+- Custom verification templates

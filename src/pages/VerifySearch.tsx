@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Shield } from 'lucide-react'
+import { Search, Shield, Camera } from 'lucide-react'
+import { QRScanner } from '../components/QRScanner'
 
 export const VerifySearch = () => {
   const [code, setCode] = useState('')
+  const [showScanner, setShowScanner] = useState(false)
   const navigate = useNavigate()
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -11,6 +13,11 @@ export const VerifySearch = () => {
     if (code.trim()) {
       navigate(`/verify/${code.trim()}`)
     }
+  }
+
+  const handleScan = (scannedCode: string) => {
+    setShowScanner(false)
+    navigate(`/verify/${scannedCode.trim()}`)
   }
 
   return (
@@ -44,8 +51,25 @@ export const VerifySearch = () => {
               Verify Authenticity
             </h2>
             <p className="text-gray-600 text-center mb-8">
-              Enter the verification code found on your document or ID card to confirm its authenticity
+              Scan the QR code or enter the verification code manually
             </p>
+
+            <button
+              onClick={() => setShowScanner(true)}
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center gap-2 text-lg shadow-lg mb-6"
+            >
+              <Camera className="w-6 h-6" />
+              Scan QR Code
+            </button>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-gray-500 font-medium">OR ENTER MANUALLY</span>
+              </div>
+            </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
@@ -102,6 +126,13 @@ export const VerifySearch = () => {
           <p>Scan the QR code on your document or enter the code manually</p>
         </div>
       </div>
+
+      {showScanner && (
+        <QRScanner
+          onScan={handleScan}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   )
 }
