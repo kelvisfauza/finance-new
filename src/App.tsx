@@ -15,6 +15,10 @@ import { Reports } from './pages/Reports'
 import { ReportsNew } from './pages/ReportsNew'
 import { FinanceReports } from './pages/FinanceReports'
 import { Settings } from './pages/Settings'
+import { VerifySearch } from './pages/VerifySearch'
+import { VerifyResult } from './pages/VerifyResult'
+import { AdminVerifications } from './pages/AdminVerifications'
+import { VerificationAuditLogs } from './pages/VerificationAuditLogs'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,6 +36,9 @@ function App() {
         <AuthProvider>
         <Routes>
           <Route path="/auth" element={<Login />} />
+
+          <Route path="/verify" element={<VerifySearch />} />
+          <Route path="/verify/:code" element={<VerifyResult />} />
 
           <Route
             path="/"
@@ -52,6 +59,8 @@ function App() {
             <Route path="reports-old" element={<ReportsNew />} />
             <Route path="reports-legacy" element={<Reports />} />
             <Route path="reports/:reportType" element={<Reports />} />
+            <Route path="admin/verifications" element={<AdminVerifications />} />
+            <Route path="admin/verifications/logs" element={<VerificationAuditLogs />} />
             <Route path="settings" element={<Settings />} />
           </Route>
 
