@@ -143,6 +143,62 @@ export const CoffeePayments = () => {
       const { data: { user } } = await supabase.auth.getUser()
       const processedBy = user?.email || 'Finance'
 
+      const { data: currentLot, error: checkError } = await supabase
+        .from('finance_coffee_lots')
+        .select('finance_status')
+        .eq('id', selectedLot.id)
+        .maybeSingle()
+
+      if (checkError) throw checkError
+
+      if (!currentLot) {
+        throw new Error('Coffee lot not found')
+      }
+
+      if (currentLot.finance_status === 'PAID') {
+        alert('This lot has already been paid')
+        setProcessing(false)
+        setShowPaymentModal(false)
+        resetForm()
+        fetchLots()
+        return
+      }
+
+      const batchRef = referenceNumber || selectedLot.batch_number || ''
+      if (batchRef) {
+        const { data: existingPayment } = await supabase
+          .from('supplier_payments')
+          .select('id')
+          .eq('reference', batchRef)
+          .eq('is_duplicate', false)
+          .maybeSingle()
+
+        if (existingPayment) {
+          alert('Payment for this batch reference already exists')
+          setProcessing(false)
+          setShowPaymentModal(false)
+          resetForm()
+          fetchLots()
+          return
+        }
+      }
+
+      const { data: existingLotPayment } = await supabase
+        .from('supplier_payments')
+        .select('id')
+        .eq('lot_id', selectedLot.id)
+        .eq('is_duplicate', false)
+        .maybeSingle()
+
+      if (existingLotPayment) {
+        alert('Payment for this lot already exists')
+        setProcessing(false)
+        setShowPaymentModal(false)
+        resetForm()
+        fetchLots()
+        return
+      }
+
       const { error: updateError } = await supabase
         .from('finance_coffee_lots')
         .update({
@@ -151,6 +207,7 @@ export const CoffeePayments = () => {
           updated_at: new Date().toISOString()
         })
         .eq('id', selectedLot.id)
+        .eq('finance_status', 'READY_FOR_FINANCE')
 
       if (updateError) throw updateError
 
@@ -167,8 +224,9 @@ export const CoffeePayments = () => {
           gross_payable_ugx: amount,
           advance_recovered_ugx: 0,
           amount_paid_ugx: amount,
-          reference: referenceNumber || selectedLot.batch_number || '',
-          notes: notes || null
+          reference: batchRef,
+          notes: notes || null,
+          is_duplicate: false
         })
 
       if (paymentError) throw paymentError

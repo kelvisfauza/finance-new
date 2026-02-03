@@ -95,6 +95,39 @@ export const PendingCoffeePayments = () => {
       const { data: { user } } = await supabase.auth.getUser()
       const processedBy = user?.email || 'Finance'
 
+      const { data: existingRecord, error: checkError } = await supabase
+        .from('payment_records')
+        .select('status')
+        .eq('id', lot.id)
+        .maybeSingle()
+
+      if (checkError) throw checkError
+
+      if (!existingRecord) {
+        throw new Error('Payment record not found')
+      }
+
+      if (existingRecord.status === 'Paid') {
+        alert('This batch has already been paid')
+        setProcessing(null)
+        refetch()
+        return
+      }
+
+      const { data: existingPayment } = await supabase
+        .from('supplier_payments')
+        .select('id')
+        .eq('reference', lot.batch_number)
+        .eq('is_duplicate', false)
+        .maybeSingle()
+
+      if (existingPayment) {
+        alert('Payment for this batch already exists')
+        setProcessing(null)
+        refetch()
+        return
+      }
+
       const { error: updateError } = await supabase
         .from('payment_records')
         .update({
@@ -104,6 +137,7 @@ export const PendingCoffeePayments = () => {
           updated_at: new Date().toISOString()
         })
         .eq('id', lot.id)
+        .eq('status', 'Pending')
 
       if (updateError) throw updateError
 
@@ -120,7 +154,8 @@ export const PendingCoffeePayments = () => {
           advance_recovered_ugx: lot.advanceAmount || 0,
           amount_paid_ugx: lot.finalAmount,
           reference: lot.batch_number,
-          notes: `Coffee payment for ${lot.supplier_name} - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`
+          notes: `Coffee payment for ${lot.supplier_name} (${lot.supplier_id}) - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`,
+          is_duplicate: false
         })
 
       if (paymentError) throw paymentError
@@ -270,7 +305,7 @@ export const PendingCoffeePayments = () => {
                     <td className="py-3 px-4 text-center">
                       <button
                         onClick={() => handleProcessPayment(lot)}
-                        disabled={processing === lot.id}
+                        disabled={processing !== null}
                         className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {processing === lot.id ? 'Processing...' : 'Pay'}
