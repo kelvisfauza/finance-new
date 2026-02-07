@@ -271,6 +271,19 @@ export const PendingCoffeePayments = () => {
       const { data: { user } } = await supabase.auth.getUser()
       const processedBy = user?.email || 'Finance'
 
+      const { data: balanceRecord, error: balanceError } = await supabase
+        .from('finance_cash_balance')
+        .select('id, current_balance')
+        .single()
+
+      if (balanceError || !balanceRecord) {
+        throw new Error('Cash balance record not found')
+      }
+
+      let runningBalance = balanceRecord.current_balance
+      const successfulPayments: any[] = []
+      const transactions: any[] = []
+
       for (const lot of confirmBulkPayment) {
         const { data: existingRecord, error: checkError } = await supabase
           .from('payment_records')
@@ -344,47 +357,46 @@ export const PendingCoffeePayments = () => {
           if (advanceError) console.error('Error closing advances:', advanceError)
         }
 
-        const { data: balanceRecord } = await supabase
-          .from('finance_cash_balance')
-          .select('id, current_balance')
-          .single()
+        runningBalance -= lot.finalAmount
 
-        if (!balanceRecord) throw new Error('Cash balance record not found')
+        transactions.push({
+          transaction_type: 'PAYMENT',
+          amount: -lot.finalAmount,
+          balance_after: runningBalance,
+          reference: lot.batch_number,
+          notes: `Coffee payment for ${lot.supplier_name} - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`,
+          created_by: processedBy,
+          status: 'confirmed',
+          confirmed_by: processedBy,
+          confirmed_at: new Date().toISOString()
+        })
 
-        const newBalance = balanceRecord.current_balance - lot.finalAmount
+        successfulPayments.push(lot)
+      }
 
+      if (transactions.length > 0) {
         const { error: transactionError } = await supabase
           .from('finance_cash_transactions')
-          .insert({
-            transaction_type: 'PAYMENT',
-            amount: -lot.finalAmount,
-            balance_after: newBalance,
-            reference: lot.batch_number,
-            notes: `Coffee payment for ${lot.supplier_name} - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`,
-            created_by: processedBy,
-            status: 'confirmed',
-            confirmed_by: processedBy,
-            confirmed_at: new Date().toISOString()
-          })
+          .insert(transactions)
 
         if (transactionError) throw transactionError
 
-        const { error: balanceError } = await supabase
+        const { error: updateBalanceError } = await supabase
           .from('finance_cash_balance')
           .update({
-            current_balance: newBalance,
+            current_balance: runningBalance,
             last_updated: new Date().toISOString(),
             updated_by: processedBy
           })
           .eq('id', balanceRecord.id)
 
-        if (balanceError) throw balanceError
+        if (updateBalanceError) throw updateBalanceError
       }
 
       setSelectedPayments(new Set())
       fetchCashBalanceAndAdvances()
       refetch()
-      alert(`Successfully processed ${confirmBulkPayment.length} payment(s)`)
+      alert(`Successfully processed ${successfulPayments.length} payment(s)`)
     } catch (err: any) {
       console.error('Error processing bulk payments:', err)
       alert(`Failed to process bulk payments: ${err.message}`)
