@@ -175,7 +175,8 @@ export const PendingCoffeePayments = () => {
       const { data: balanceRecord } = await supabase
         .from('finance_cash_balance')
         .select('id, current_balance')
-        .single()
+        .eq('singleton', true)
+        .maybeSingle()
 
       if (!balanceRecord) throw new Error('Cash balance record not found')
 
@@ -204,7 +205,7 @@ export const PendingCoffeePayments = () => {
           last_updated: new Date().toISOString(),
           updated_by: processedBy
         })
-        .eq('id', balanceRecord.id)
+        .eq('singleton', true)
 
       if (balanceError) throw balanceError
 
@@ -274,7 +275,8 @@ export const PendingCoffeePayments = () => {
       const { data: balanceRecord, error: balanceError } = await supabase
         .from('finance_cash_balance')
         .select('id, current_balance')
-        .single()
+        .eq('singleton', true)
+        .maybeSingle()
 
       if (balanceError || !balanceRecord) {
         throw new Error('Cash balance record not found')
@@ -388,7 +390,7 @@ export const PendingCoffeePayments = () => {
             last_updated: new Date().toISOString(),
             updated_by: processedBy
           })
-          .eq('id', balanceRecord.id)
+          .eq('singleton', true)
 
         if (updateBalanceError) throw updateBalanceError
       }

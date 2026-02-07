@@ -99,7 +99,7 @@ export const PendingCashDeposits = () => {
           last_updated: new Date().toISOString(),
           updated_by: confirmedBy
         })
-        .eq('id', currentBalance.id)
+        .eq('singleton', true)
 
       if (balanceUpdateError) throw balanceUpdateError
 

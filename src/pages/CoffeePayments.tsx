@@ -264,7 +264,7 @@ export const CoffeePayments = () => {
           last_updated: new Date().toISOString(),
           updated_by: processedBy
         })
-        .eq('id', balanceData.id)
+        .eq('singleton', true)
 
       if (balanceError) throw balanceError
 
