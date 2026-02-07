@@ -10,6 +10,8 @@ export const PendingCoffeePayments = () => {
   const [cashBalance, setCashBalance] = useState(0)
   const [confirmPayment, setConfirmPayment] = useState<any | null>(null)
   const [supplierAdvances, setSupplierAdvances] = useState<Record<string, number>>({})
+  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set())
+  const [confirmBulkPayment, setConfirmBulkPayment] = useState<any[] | null>(null)
 
   useEffect(() => {
     fetchCashBalanceAndAdvances()
@@ -216,6 +218,181 @@ export const PendingCoffeePayments = () => {
     }
   }
 
+  const handleSelectPayment = (lotId: string) => {
+    const newSelected = new Set(selectedPayments)
+    if (newSelected.has(lotId)) {
+      newSelected.delete(lotId)
+    } else {
+      if (newSelected.size >= 10) {
+        alert('You can only select up to 10 payments at once')
+        return
+      }
+      newSelected.add(lotId)
+    }
+    setSelectedPayments(newSelected)
+  }
+
+  const handleBulkPayment = () => {
+    const selectedLots = lots?.filter(lot => selectedPayments.has(lot.id)) || []
+
+    const paymentsDetails = selectedLots.map(lot => {
+      const totalAmount = lot.kilograms * (lot.final_price || lot.suggested_price || 0)
+      const advanceAmount = lot.supplier_id ? (supplierAdvances[lot.supplier_id] || 0) : 0
+      const finalAmount = Math.max(0, totalAmount - advanceAmount)
+
+      return {
+        ...lot,
+        totalAmount,
+        advanceAmount,
+        finalAmount
+      }
+    })
+
+    const totalFinalAmount = paymentsDetails.reduce((sum, p) => sum + p.finalAmount, 0)
+    const newNetBalance = cashBalance - totalFinalAmount
+    const willBeOverdraft = newNetBalance < 0
+    const overdraftAmount = willBeOverdraft ? Math.abs(newNetBalance) : 0
+
+    setConfirmBulkPayment(paymentsDetails.map(p => ({
+      ...p,
+      willBeOverdraft,
+      overdraftAmount
+    })))
+  }
+
+  const confirmBulkProcessPayment = async () => {
+    if (!confirmBulkPayment) return
+
+    setConfirmBulkPayment(null)
+
+    try {
+      setProcessing('bulk')
+
+      const { data: { user } } = await supabase.auth.getUser()
+      const processedBy = user?.email || 'Finance'
+
+      for (const lot of confirmBulkPayment) {
+        const { data: existingRecord, error: checkError } = await supabase
+          .from('payment_records')
+          .select('status')
+          .eq('id', lot.id)
+          .maybeSingle()
+
+        if (checkError) throw checkError
+
+        if (!existingRecord) {
+          console.warn(`Payment record not found for batch ${lot.batch_number}`)
+          continue
+        }
+
+        if (existingRecord.status === 'Paid') {
+          console.warn(`Batch ${lot.batch_number} has already been paid`)
+          continue
+        }
+
+        const { data: existingPayment } = await supabase
+          .from('supplier_payments')
+          .select('id')
+          .eq('reference', lot.batch_number)
+          .eq('is_duplicate', false)
+          .maybeSingle()
+
+        if (existingPayment) {
+          console.warn(`Payment for batch ${lot.batch_number} already exists`)
+          continue
+        }
+
+        const { error: updateError } = await supabase
+          .from('payment_records')
+          .update({
+            status: 'Paid',
+            amount_paid: lot.finalAmount,
+            balance: 0,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', lot.id)
+          .eq('status', 'Pending')
+
+        if (updateError) throw updateError
+
+        const { error: paymentError } = await supabase
+          .from('supplier_payments')
+          .insert({
+            supplier_id: lot.supplier_id,
+            method: 'CASH',
+            status: 'POSTED',
+            requested_by: processedBy,
+            approved_by: processedBy,
+            approved_at: new Date().toISOString(),
+            gross_payable_ugx: lot.totalAmount,
+            advance_recovered_ugx: lot.advanceAmount || 0,
+            amount_paid_ugx: lot.finalAmount,
+            reference: lot.batch_number,
+            notes: `Coffee payment for ${lot.supplier_name} (${lot.supplier_id}) - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`,
+            is_duplicate: false
+          })
+
+        if (paymentError) throw paymentError
+
+        if (lot.advanceAmount > 0 && lot.supplier_id) {
+          const { error: advanceError } = await supabase
+            .from('supplier_advances')
+            .update({ is_closed: true, outstanding_ugx: 0 })
+            .eq('supplier_id', lot.supplier_id)
+            .eq('is_closed', false)
+
+          if (advanceError) console.error('Error closing advances:', advanceError)
+        }
+
+        const { data: balanceRecord } = await supabase
+          .from('finance_cash_balance')
+          .select('id, current_balance')
+          .single()
+
+        if (!balanceRecord) throw new Error('Cash balance record not found')
+
+        const newBalance = balanceRecord.current_balance - lot.finalAmount
+
+        const { error: transactionError } = await supabase
+          .from('finance_cash_transactions')
+          .insert({
+            transaction_type: 'PAYMENT',
+            amount: -lot.finalAmount,
+            balance_after: newBalance,
+            reference: lot.batch_number,
+            notes: `Coffee payment for ${lot.supplier_name} - ${lot.kilograms} kg @ ${lot.final_price || lot.suggested_price} UGX/kg`,
+            created_by: processedBy,
+            status: 'confirmed',
+            confirmed_by: processedBy,
+            confirmed_at: new Date().toISOString()
+          })
+
+        if (transactionError) throw transactionError
+
+        const { error: balanceError } = await supabase
+          .from('finance_cash_balance')
+          .update({
+            current_balance: newBalance,
+            last_updated: new Date().toISOString(),
+            updated_by: processedBy
+          })
+          .eq('id', balanceRecord.id)
+
+        if (balanceError) throw balanceError
+      }
+
+      setSelectedPayments(new Set())
+      fetchCashBalanceAndAdvances()
+      refetch()
+      alert(`Successfully processed ${confirmBulkPayment.length} payment(s)`)
+    } catch (err: any) {
+      console.error('Error processing bulk payments:', err)
+      alert(`Failed to process bulk payments: ${err.message}`)
+    } finally {
+      setProcessing(null)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -240,6 +417,14 @@ export const PendingCoffeePayments = () => {
     )
   }
 
+  const selectedLots = lots?.filter(lot => selectedPayments.has(lot.id)) || []
+  const selectedTotal = selectedLots.reduce((sum, lot) => {
+    const totalAmount = lot.kilograms * (lot.final_price || lot.suggested_price || 0)
+    const advanceAmount = lot.supplier_id ? (supplierAdvances[lot.supplier_id] || 0) : 0
+    const finalAmount = Math.max(0, totalAmount - advanceAmount)
+    return sum + finalAmount
+  }, 0)
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
@@ -257,6 +442,28 @@ export const PendingCoffeePayments = () => {
         </div>
       </div>
 
+      {selectedPayments.size > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-green-900">
+                {selectedPayments.size} payment{selectedPayments.size !== 1 ? 's' : ''} selected
+              </p>
+              <p className="text-xs text-green-700 mt-1">
+                Total: {formatCurrency(selectedTotal)}
+              </p>
+            </div>
+            <button
+              onClick={handleBulkPayment}
+              disabled={processing !== null}
+              className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Pay {selectedPayments.size} Selected
+            </button>
+          </div>
+        </div>
+      )}
+
       {!lots || lots.length === 0 ? (
         <div className="text-center py-8">
           <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
@@ -268,6 +475,21 @@ export const PendingCoffeePayments = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
+                <th className="text-center py-3 px-4 font-semibold text-gray-700 w-12">
+                  <input
+                    type="checkbox"
+                    checked={lots && selectedPayments.size === lots.length && lots.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const allIds = lots?.slice(0, 10).map(l => l.id) || []
+                        setSelectedPayments(new Set(allIds))
+                      } else {
+                        setSelectedPayments(new Set())
+                      }
+                    }}
+                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                  />
+                </th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Batch #</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Supplier</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Weight (kg)</th>
@@ -284,9 +506,18 @@ export const PendingCoffeePayments = () => {
                 const totalAmount = lot.kilograms * unitPrice
                 const advanceAmount = lot.supplier_id ? (supplierAdvances[lot.supplier_id] || 0) : 0
                 const finalAmount = Math.max(0, totalAmount - advanceAmount)
+                const isSelected = selectedPayments.has(lot.id)
 
                 return (
-                  <tr key={lot.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={lot.id} className={`border-b border-gray-100 hover:bg-gray-50 ${isSelected ? 'bg-green-50' : ''}`}>
+                    <td className="py-3 px-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleSelectPayment(lot.id)}
+                        className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                      />
+                    </td>
                     <td className="py-3 px-4 font-medium">{lot.batch_number}</td>
                     <td className="py-3 px-4">{lot.supplier_name}</td>
                     <td className="py-3 px-4 text-right">{Number(lot.kilograms).toLocaleString()}</td>
@@ -380,6 +611,92 @@ export const PendingCoffeePayments = () => {
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
                   Confirm Payment
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmBulkPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-900">Confirm Bulk Payment</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                You are about to process {confirmBulkPayment.length} payment{confirmBulkPayment.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-4">
+                {confirmBulkPayment.map((payment, index) => (
+                  <div key={payment.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-semibold text-gray-900">{payment.batch_number}</p>
+                        <p className="text-sm text-gray-600">{payment.supplier_name}</p>
+                      </div>
+                      <p className="text-lg font-bold text-green-700">{formatCurrency(payment.finalAmount)}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-600">Quantity:</span>{' '}
+                        <span className="font-medium">{payment.kilograms} kg</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Total:</span>{' '}
+                        <span className="font-medium">{formatCurrency(payment.totalAmount)}</span>
+                      </div>
+                      {payment.advanceAmount > 0 && (
+                        <div className="col-span-2">
+                          <span className="text-gray-600">Advance:</span>{' '}
+                          <span className="font-medium text-orange-700">-{formatCurrency(payment.advanceAmount)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-900 font-semibold">Total Payment Amount:</span>
+                  <span className="text-2xl font-bold text-green-700">
+                    {formatCurrency(confirmBulkPayment.reduce((sum, p) => sum + p.finalAmount, 0))}
+                  </span>
+                </div>
+              </div>
+
+              {confirmBulkPayment[0]?.willBeOverdraft && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mt-4">
+                  <div className="flex items-start">
+                    <AlertTriangle className="w-5 h-5 text-orange-600 mr-2 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-orange-900">Overdraft Warning</p>
+                      <p className="text-sm text-orange-700 mt-1">
+                        These payments will push you into overdraft of {formatCurrency(confirmBulkPayment[0].overdraftAmount)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setConfirmBulkPayment(null)}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmBulkProcessPayment}
+                  disabled={processing !== null}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {processing === 'bulk' ? 'Processing...' : `Confirm ${confirmBulkPayment.length} Payment${confirmBulkPayment.length !== 1 ? 's' : ''}`}
                 </button>
               </div>
             </div>
