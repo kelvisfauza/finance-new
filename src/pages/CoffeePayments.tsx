@@ -24,6 +24,7 @@ interface CoffeeLot {
   finance_notes?: string
   created_at: string
   updated_at: string
+  payment_source?: 'coffee_lots' | 'cash_management'
 }
 
 export const CoffeePayments = () => {
@@ -45,6 +46,8 @@ export const CoffeePayments = () => {
   const fetchLots = useCallback(async () => {
     try {
       setLoading(true)
+      let allTransformed: CoffeeLot[] = []
+
       let query = supabase
         .from('finance_coffee_lots')
         .select(`
@@ -67,32 +70,94 @@ export const CoffeePayments = () => {
 
       if (error) throw error
 
-      if (!coffeeLots || coffeeLots.length === 0) {
-        setLots([])
-        return
+      if (coffeeLots && coffeeLots.length > 0) {
+        const transformed = coffeeLots.map((lot: any) => ({
+          id: lot.id,
+          quality_assessment_id: lot.quality_assessment_id,
+          coffee_record_id: lot.coffee_record_id,
+          supplier_id: lot.supplier_id,
+          supplier_name: lot.supplier?.name || 'N/A',
+          supplier_code: lot.supplier?.code || 'N/A',
+          batch_number: lot.quality_assessment?.batch_number || 'N/A',
+          assessed_by: lot.assessed_by,
+          assessed_at: lot.assessed_at,
+          quality_json: lot.quality_json,
+          unit_price_ugx: Number(lot.unit_price_ugx),
+          quantity_kg: Number(lot.quantity_kg),
+          total_amount_ugx: Number(lot.total_amount_ugx),
+          finance_status: lot.finance_status,
+          finance_notes: lot.finance_notes,
+          created_at: lot.created_at,
+          updated_at: lot.updated_at,
+          payment_source: 'coffee_lots' as const
+        }))
+        allTransformed = [...transformed]
       }
 
-      const transformed = coffeeLots.map((lot: any) => ({
-        id: lot.id,
-        quality_assessment_id: lot.quality_assessment_id,
-        coffee_record_id: lot.coffee_record_id,
-        supplier_id: lot.supplier_id,
-        supplier_name: lot.supplier?.name || 'N/A',
-        supplier_code: lot.supplier?.code || 'N/A',
-        batch_number: lot.quality_assessment?.batch_number || 'N/A',
-        assessed_by: lot.assessed_by,
-        assessed_at: lot.assessed_at,
-        quality_json: lot.quality_json,
-        unit_price_ugx: Number(lot.unit_price_ugx),
-        quantity_kg: Number(lot.quantity_kg),
-        total_amount_ugx: Number(lot.total_amount_ugx),
-        finance_status: lot.finance_status,
-        finance_notes: lot.finance_notes,
-        created_at: lot.created_at,
-        updated_at: lot.updated_at
-      }))
+      if (statusFilter === 'PAID') {
+        let cashMgmtQuery = supabase
+          .from('supplier_payments')
+          .select(`
+            *,
+            supplier:suppliers(name, code)
+          `)
+          .eq('status', 'POSTED')
+          .eq('is_duplicate', false)
+          .not('lot_id', 'is', null)
 
-      setLots(transformed)
+        if (dateFilter) {
+          const startOfDay = `${dateFilter}T00:00:00.000Z`
+          const endOfDay = `${dateFilter}T23:59:59.999Z`
+          cashMgmtQuery = cashMgmtQuery.gte('approved_at', startOfDay).lte('approved_at', endOfDay)
+        }
+
+        const { data: cashPayments, error: cashError } = await cashMgmtQuery.order('approved_at', { ascending: false })
+
+        if (cashError) {
+          console.error('Error fetching cash management payments:', cashError)
+        } else if (cashPayments && cashPayments.length > 0) {
+          const cashTransformed = cashPayments.map((payment: any) => {
+            const quantityMatch = payment.notes?.match(/(\d+(?:\.\d+)?)\s*kg/)
+            const priceMatch = payment.notes?.match(/@\s*(\d+(?:,\d+)*(?:\.\d+)?)\s*UGX/)
+
+            const quantity = quantityMatch ? parseFloat(quantityMatch[1]) : 0
+            const unitPrice = priceMatch ? parseFloat(priceMatch[1].replace(/,/g, '')) :
+                             quantity > 0 ? Number(payment.gross_payable_ugx) / quantity : 0
+
+            return {
+              id: payment.id,
+              quality_assessment_id: undefined,
+              coffee_record_id: payment.reference,
+              supplier_id: payment.supplier_id,
+              supplier_name: payment.supplier?.name || 'N/A',
+              supplier_code: payment.supplier?.code || 'N/A',
+              batch_number: payment.reference || 'N/A',
+              assessed_by: payment.approved_by || 'System',
+              assessed_at: payment.approved_at,
+              quality_json: null,
+              unit_price_ugx: unitPrice,
+              quantity_kg: quantity,
+              total_amount_ugx: Number(payment.amount_paid_ugx),
+              finance_status: 'PAID',
+              finance_notes: payment.notes,
+              created_at: payment.created_at,
+              updated_at: payment.approved_at,
+              payment_source: 'cash_management' as const
+            }
+          })
+
+          const existingLotIds = new Set(allTransformed.filter(lot => lot.payment_source === 'coffee_lots').map(lot => lot.id))
+          const uniqueCashPayments = cashTransformed.filter((payment: any) => {
+            const paymentLotId = cashPayments.find((p: any) => p.id === payment.id)?.lot_id
+            return !paymentLotId || !existingLotIds.has(paymentLotId)
+          })
+
+          allTransformed = [...allTransformed, ...uniqueCashPayments]
+        }
+      }
+
+      allTransformed.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      setLots(allTransformed)
     } catch (error: any) {
       console.error('Error fetching coffee lots:', error)
       alert('Failed to fetch coffee lots')
@@ -417,7 +482,14 @@ export const CoffeePayments = () => {
               ) : (
                 filteredLots.map((lot) => (
                   <tr key={lot.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4">{lot.coffee_record_id || 'N/A'}</td>
+                    <td className="py-3 px-4">
+                      <div className="flex flex-col">
+                        <span>{lot.coffee_record_id || 'N/A'}</span>
+                        {lot.payment_source === 'cash_management' && (
+                          <span className="text-xs text-blue-600 mt-1">Via Cash Mgmt</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3 px-4">{lot.assessed_by}</td>
                     <td className="py-3 px-4 text-right">{lot.quantity_kg.toFixed(2)}</td>
                     <td className="py-3 px-4 text-right">{formatCurrency(lot.unit_price_ugx)}</td>
