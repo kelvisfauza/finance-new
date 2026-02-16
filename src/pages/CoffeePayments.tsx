@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
 import { Coffee, DollarSign, CheckCircle, Clock, Download, Search } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 import { useFinanceNotifications } from '../hooks/useFinanceNotifications'
+import { CoffeePaymentReceipt } from '../components/CoffeePaymentReceipt'
 
 interface CoffeeLot {
   id: string
@@ -526,7 +527,7 @@ export const CoffeePayments = () => {
                     </td>
                     <td className="py-3 px-4">{formatDate(statusFilter === 'PAID' ? lot.updated_at : lot.assessed_at)}</td>
                     <td className="py-3 px-4 text-center">
-                      {lot.finance_status === 'READY_FOR_FINANCE' && (
+                      {lot.finance_status === 'READY_FOR_FINANCE' ? (
                         <PermissionGate roles={['Super Admin', 'Manager', 'Administrator', 'Finance']}>
                           <button
                             onClick={() => handleProcessPayment(lot)}
@@ -535,7 +536,9 @@ export const CoffeePayments = () => {
                             Process Payment
                           </button>
                         </PermissionGate>
-                      )}
+                      ) : lot.finance_status === 'PAID' ? (
+                        <CoffeePaymentReceipt lot={lot} referenceNumber={lot.batch_number} />
+                      ) : null}
                     </td>
                   </tr>
                 ))
