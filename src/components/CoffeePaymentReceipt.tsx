@@ -79,10 +79,7 @@ export const CoffeePaymentReceipt = ({ lot, referenceNumber }: CoffeePaymentRece
         </div>`
       : ''
 
-    const printWindow = window.open('', '', 'width=800,height=600')
-    if (!printWindow) return
-
-    printWindow.document.write(`
+    const htmlContent = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -213,14 +210,22 @@ export const CoffeePaymentReceipt = ({ lot, referenceNumber }: CoffeePaymentRece
           </div>
         </body>
       </html>
-    `)
+    `
 
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      alert('Please allow pop-ups to print the receipt')
+      return
+    }
+
+    printWindow.document.open()
+    printWindow.document.write(htmlContent)
     printWindow.document.close()
-    printWindow.focus()
+
     setTimeout(() => {
+      printWindow.focus()
       printWindow.print()
-      printWindow.close()
-    }, 500)
+    }, 250)
   }
 
   return (
