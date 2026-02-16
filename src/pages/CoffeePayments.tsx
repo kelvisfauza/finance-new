@@ -103,7 +103,6 @@ export const CoffeePayments = () => {
           `)
           .eq('status', 'POSTED')
           .eq('is_duplicate', false)
-          .not('lot_id', 'is', null)
 
         if (dateFilter) {
           const startOfDay = `${dateFilter}T00:00:00.000Z`
