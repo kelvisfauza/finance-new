@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useFinanceStats } from '../hooks/useFinanceStats'
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
+import { usePendingCommitments } from '../hooks/usePendingCommitments'
 import { formatCurrency } from '../lib/utils'
 import { MarketPricesCard } from '../components/MarketPricesCard'
 import {
@@ -79,6 +80,7 @@ const currency = (value: number) =>
 export const Dashboard = () => {
   const navigate = useNavigate()
   const stats = useFinanceStats()
+  const { totalCommitted, refetch: refetchCommitments } = usePendingCommitments()
   const [months, setMonths] = useState<MonthlySummary[]>([])
   const [selectedMonthKey, setSelectedMonthKey] = useState<string>('')
   const [dailyData, setDailyData] = useState<DailyPoint[]>([])

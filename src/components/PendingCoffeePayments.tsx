@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate } from '../lib/utils'
-import { Coffee, DollarSign, AlertTriangle, CheckCircle } from 'lucide-react'
+import { Coffee, DollarSign, AlertTriangle, CheckCircle, Lock } from 'lucide-react'
 import { usePendingCoffeePayments } from '../hooks/usePendingCoffeePayments'
 
 export const PendingCoffeePayments = () => {
@@ -69,19 +69,28 @@ export const PendingCoffeePayments = () => {
     const advanceAmount = lot.supplier_id ? (supplierAdvances[lot.supplier_id] || 0) : 0
     const finalAmount = Math.max(0, totalAmount - advanceAmount)
 
-    const netBalance = cashBalance
-    const availableCash = Math.max(0, netBalance)
-    const newNetBalance = netBalance - finalAmount
-    const willBeOverdraft = newNetBalance < 0
-    const overdraftAmount = willBeOverdraft ? Math.abs(newNetBalance) : 0
+    const otherPendingPayments = lots
+      ?.filter(l => l.id !== lot.id)
+      .reduce((sum, l) => {
+        const total = l.kilograms * (l.final_price || l.suggested_price || 0)
+        const advance = l.supplier_id ? (supplierAdvances[l.supplier_id] || 0) : 0
+        return sum + Math.max(0, total - advance)
+      }, 0) || 0
+
+    const availableBalance = cashBalance - otherPendingPayments
+    const newAvailableBalance = availableBalance - finalAmount
+    const willBeOverdraft = newAvailableBalance < 0
 
     setConfirmPayment({
       ...lot,
       totalAmount,
       advanceAmount,
       finalAmount,
+      otherPendingPayments,
+      availableBalance,
+      newAvailableBalance,
       willBeOverdraft,
-      overdraftAmount
+      overdraftAmount: willBeOverdraft ? Math.abs(newAvailableBalance) : 0
     })
   }
 
@@ -182,7 +191,7 @@ export const PendingCoffeePayments = () => {
 
       const newBalance = balanceRecord.current_balance - lot.finalAmount
 
-      const { error: transactionError } = await supabase
+      const { data: transactionData, error: transactionError } = await supabase
         .from('finance_cash_transactions')
         .insert({
           transaction_type: 'PAYMENT',
@@ -195,8 +204,30 @@ export const PendingCoffeePayments = () => {
           confirmed_by: processedBy,
           confirmed_at: new Date().toISOString()
         })
+        .select()
 
-      if (transactionError) throw transactionError
+      if (transactionError) {
+        console.error('CRITICAL: Failed to create cash transaction:', transactionError)
+        console.error('Transaction details:', { transactionError, code: transactionError.code, details: transactionError.details })
+
+        await supabase
+          .from('payment_records')
+          .update({ status: 'Pending' })
+          .eq('id', lot.id)
+
+        throw new Error(`Failed to record cash transaction: ${transactionError.message}. Payment has been reverted.`)
+      }
+
+      if (!transactionData || transactionData.length === 0) {
+        console.error('CRITICAL: Transaction insert returned no data (likely RLS policy blocking)')
+
+        await supabase
+          .from('payment_records')
+          .update({ status: 'Pending' })
+          .eq('id', lot.id)
+
+        throw new Error('Failed to record cash transaction due to permissions. Payment has been reverted.')
+      }
 
       const { error: balanceError } = await supabase
         .from('finance_cash_balance')
@@ -377,11 +408,37 @@ export const PendingCoffeePayments = () => {
       }
 
       if (transactions.length > 0) {
-        const { error: transactionError } = await supabase
+        const { data: transactionData, error: transactionError } = await supabase
           .from('finance_cash_transactions')
           .insert(transactions)
+          .select()
 
-        if (transactionError) throw transactionError
+        if (transactionError) {
+          console.error('CRITICAL: Failed to create cash transactions in bulk:', transactionError)
+          console.error('Transaction error details:', { transactionError, code: transactionError.code, details: transactionError.details })
+
+          for (const payment of successfulPayments) {
+            await supabase
+              .from('payment_records')
+              .update({ status: 'Pending' })
+              .eq('id', payment.id)
+          }
+
+          throw new Error(`Failed to record cash transactions: ${transactionError.message}. All payments have been reverted.`)
+        }
+
+        if (!transactionData || transactionData.length === 0) {
+          console.error('CRITICAL: Bulk transaction insert returned no data (likely RLS policy blocking)')
+
+          for (const payment of successfulPayments) {
+            await supabase
+              .from('payment_records')
+              .update({ status: 'Pending' })
+              .eq('id', payment.id)
+          }
+
+          throw new Error('Failed to record cash transactions due to permissions. All payments have been reverted.')
+        }
 
         const { error: updateBalanceError } = await supabase
           .from('finance_cash_balance')

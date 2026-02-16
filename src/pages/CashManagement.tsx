@@ -6,6 +6,7 @@ import { Wallet, TrendingUp, TrendingDown, DollarSign, AlertTriangle } from 'luc
 import { PendingCashDeposits } from '../components/PendingCashDeposits'
 import { PendingCoffeePayments } from '../components/PendingCoffeePayments'
 import { useFinanceSettings } from '../hooks/useFinanceSettings'
+import { usePendingCommitments } from '../hooks/usePendingCommitments'
 
 interface CashTransaction {
   id: string
@@ -35,6 +36,7 @@ export const CashManagement = () => {
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0])
   const [activeTab, setActiveTab] = useState<'overview' | 'deposits' | 'payments'>('overview')
   const { settings, shouldWarnCashImbalance } = useFinanceSettings()
+  const { totalCommitted, refetch: refetchCommitments } = usePendingCommitments()
 
   const fetchData = useCallback(async () => {
     try {
