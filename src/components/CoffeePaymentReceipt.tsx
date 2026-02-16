@@ -86,29 +86,29 @@ export const CoffeePaymentReceipt = ({ lot, referenceNumber }: CoffeePaymentRece
           <title>Payment Receipt - ${lot.coffee_record_id || 'N/A'}</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; padding: 15px; }
-            .receipt { max-width: 800px; margin: 0 auto; border: 2px solid #000; padding: 20px; }
+            body { font-family: Arial, sans-serif; padding: 15px; background: white; }
+            .receipt { max-width: 800px; margin: 0 auto; border: 2px solid #000; padding: 20px; background: white; }
             .header { text-align: center; margin-bottom: 15px; border-bottom: 2px solid #000; padding-bottom: 12px; }
             .logo { width: 100px; height: auto; margin-bottom: 8px; }
-            .company-name { font-size: 20px; font-weight: bold; color: #059669; margin-bottom: 3px; }
-            .company-tagline { font-size: 11px; color: #059669; font-style: italic; margin-bottom: 5px; }
-            .company-details { font-size: 10px; color: #666; line-height: 1.4; }
-            .receipt-title { font-size: 18px; font-weight: bold; text-align: center; margin: 12px 0; padding: 8px; background: #f3f4f6; border: 1px solid #d1d5db; }
+            .company-name { font-size: 20px; font-weight: bold; color: #000; margin-bottom: 3px; }
+            .company-tagline { font-size: 11px; color: #000; font-style: italic; margin-bottom: 5px; }
+            .company-details { font-size: 10px; color: #000; line-height: 1.4; }
+            .receipt-title { font-size: 18px; font-weight: bold; text-align: center; margin: 12px 0; padding: 8px; background: #fff; border: 2px solid #000; }
             .section { margin-bottom: 12px; }
-            .section-title { font-weight: bold; font-size: 12px; margin-bottom: 6px; color: #059669; border-bottom: 1px solid #d1d5db; padding-bottom: 3px; }
-            .detail-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #e5e7eb; font-size: 11px; }
-            .detail-label { font-weight: 600; color: #374151; }
-            .detail-value { color: #111827; }
-            .amount-section { background: #f0fdf4; padding: 10px; border: 2px solid #059669; margin: 12px 0; border-radius: 5px; }
-            .amount-figures { font-size: 20px; font-weight: bold; color: #059669; text-align: center; margin-bottom: 6px; }
-            .amount-words { font-size: 11px; text-align: center; font-style: italic; color: #374151; }
+            .section-title { font-weight: bold; font-size: 12px; margin-bottom: 6px; color: #000; border-bottom: 1px solid #000; padding-bottom: 3px; }
+            .detail-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #000; font-size: 11px; }
+            .detail-label { font-weight: 600; color: #000; }
+            .detail-value { color: #000; }
+            .amount-section { background: #fff; padding: 10px; border: 2px solid #000; margin: 12px 0; }
+            .amount-figures { font-size: 20px; font-weight: bold; color: #000; text-align: center; margin-bottom: 6px; }
+            .amount-words { font-size: 11px; text-align: center; font-style: italic; color: #000; }
             .footer { margin-top: 20px; display: flex; justify-content: space-between; }
             .signature-box { text-align: center; }
-            .signature-line { width: 160px; border-top: 1px solid #000; margin-top: 30px; padding-top: 5px; font-size: 10px; }
-            .print-info { text-align: center; font-size: 9px; color: #999; margin-top: 15px; border-top: 1px solid #e5e7eb; padding-top: 8px; }
+            .signature-line { width: 160px; border-top: 1px solid #000; margin-top: 30px; padding-top: 5px; font-size: 10px; color: #000; }
+            .print-info { text-align: center; font-size: 9px; color: #000; margin-top: 15px; border-top: 1px solid #000; padding-top: 8px; }
             @media print {
-              body { padding: 0; }
-              .receipt { border: none; padding: 15px; }
+              body { padding: 0; background: white; }
+              .receipt { border: 2px solid #000; padding: 20px; }
               .print-info { display: none; }
             }
           </style>
