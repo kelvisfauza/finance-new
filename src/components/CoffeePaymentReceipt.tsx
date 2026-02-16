@@ -66,6 +66,19 @@ export const CoffeePaymentReceipt = ({ lot, referenceNumber }: CoffeePaymentRece
     const amountInWords = numberToWords(lot.total_amount_ugx)
     const logoUrl = window.location.origin + '/gpcf-logo.png'
 
+    const receiptDate = formatDate(lot.updated_at)
+    const suppliedDate = formatDate(lot.assessed_at)
+    const quantityText = `${lot.quantity_kg.toFixed(2)} kg (${bags} bags)`
+    const unitPriceText = `${formatCurrency(lot.unit_price_ugx)} per kg`
+    const totalAmountText = formatCurrency(lot.total_amount_ugx)
+    const printDateTime = new Date().toLocaleString()
+    const paymentMethodHtml = lot.payment_source === 'cash_management'
+      ? `<div class="detail-row">
+          <span class="detail-label">Payment Method:</span>
+          <span class="detail-value">Via Cash Management</span>
+        </div>`
+      : ''
+
     const printWindow = window.open('', '', 'width=800,height=600')
     if (!printWindow) return
 
@@ -123,7 +136,7 @@ export const CoffeePaymentReceipt = ({ lot, referenceNumber }: CoffeePaymentRece
               </div>
               <div class="detail-row">
                 <span class="detail-label">Date:</span>
-                <span class="detail-value">${formatDate(lot.updated_at)}</span>
+                <span class="detail-value">${receiptDate}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Record ID:</span>
@@ -151,15 +164,15 @@ export const CoffeePaymentReceipt = ({ lot, referenceNumber }: CoffeePaymentRece
               </div>
               <div class="detail-row">
                 <span class="detail-label">Date Supplied:</span>
-                <span class="detail-value">${formatDate(lot.assessed_at)}</span>
+                <span class="detail-value">${suppliedDate}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Quantity:</span>
-                <span class="detail-value">${lot.quantity_kg.toFixed(2)} kg (${bags} bags)</span>
+                <span class="detail-value">${quantityText}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Unit Price:</span>
-                <span class="detail-value">${formatCurrency(lot.unit_price_ugx)} per kg</span>
+                <span class="detail-value">${unitPriceText}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Assessed By:</span>
@@ -168,7 +181,7 @@ export const CoffeePaymentReceipt = ({ lot, referenceNumber }: CoffeePaymentRece
             </div>
 
             <div class="amount-section">
-              <div class="amount-figures">${formatCurrency(lot.total_amount_ugx)}</div>
+              <div class="amount-figures">${totalAmountText}</div>
               <div class="amount-words">
                 Amount in Words: <strong>${amountInWords}</strong>
               </div>
@@ -179,12 +192,7 @@ export const CoffeePaymentReceipt = ({ lot, referenceNumber }: CoffeePaymentRece
                 <span class="detail-label">Payment Status:</span>
                 <span class="detail-value">${lot.finance_status}</span>
               </div>
-              ${lot.payment_source === 'cash_management' ? `
-              <div class="detail-row">
-                <span class="detail-label">Payment Method:</span>
-                <span class="detail-value">Via Cash Management</span>
-              </div>
-              ` : ''}
+              ${paymentMethodHtml}
             </div>
 
             <div class="footer">
@@ -200,7 +208,7 @@ export const CoffeePaymentReceipt = ({ lot, referenceNumber }: CoffeePaymentRece
             </div>
 
             <div class="print-info">
-              This is a computer-generated receipt. Printed on ${new Date().toLocaleString()}
+              This is a computer-generated receipt. Printed on ${printDateTime}
             </div>
           </div>
         </body>
