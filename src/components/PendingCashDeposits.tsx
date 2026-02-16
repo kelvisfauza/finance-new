@@ -83,25 +83,34 @@ export const PendingCashDeposits = () => {
 
       if (updateError) throw updateError
 
-      const { data: currentBalance, error: balanceError } = await supabase
-        .from('finance_cash_balance')
-        .select('id, current_balance')
-        .single()
+      const { data: transactions, error: transactionsError } = await supabase
+        .from('finance_cash_transactions')
+        .select('amount')
+        .eq('status', 'confirmed')
 
-      if (balanceError) throw balanceError
+      if (transactionsError) throw transactionsError
 
-      const newBalance = (currentBalance?.current_balance || 0) + deposit.amount
+      const calculatedBalance = (transactions || []).reduce((sum: number, t: any) => sum + Number(t.amount), 0)
 
       const { error: balanceUpdateError } = await supabase
         .from('finance_cash_balance')
         .update({
-          current_balance: newBalance,
+          current_balance: calculatedBalance,
           last_updated: new Date().toISOString(),
           updated_by: confirmedBy
         })
         .eq('singleton', true)
 
       if (balanceUpdateError) throw balanceUpdateError
+
+      const { error: txUpdateError } = await supabase
+        .from('finance_cash_transactions')
+        .update({
+          balance_after: calculatedBalance
+        })
+        .eq('id', deposit.id)
+
+      if (txUpdateError) console.error('Failed to update balance_after:', txUpdateError)
 
       alert('Deposit confirmed successfully')
       fetchPendingDeposits()
