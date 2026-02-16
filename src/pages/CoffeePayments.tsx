@@ -32,7 +32,8 @@ export const CoffeePayments = () => {
   const [filteredLots, setFilteredLots] = useState<CoffeeLot[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('READY_FOR_FINANCE')
+  const [statusFilter, setStatusFilter] = useState<string>('PAID')
+  const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().split('T')[0])
   const [selectedLot, setSelectedLot] = useState<CoffeeLot | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('cash')
@@ -56,7 +57,13 @@ export const CoffeePayments = () => {
         query = query.eq('finance_status', statusFilter)
       }
 
-      const { data: coffeeLots, error } = await query.order('assessed_at', { ascending: false })
+      if (dateFilter && statusFilter === 'PAID') {
+        const startOfDay = `${dateFilter}T00:00:00.000Z`
+        const endOfDay = `${dateFilter}T23:59:59.999Z`
+        query = query.gte('updated_at', startOfDay).lte('updated_at', endOfDay)
+      }
+
+      const { data: coffeeLots, error } = await query.order('updated_at', { ascending: false })
 
       if (error) throw error
 
@@ -92,7 +99,7 @@ export const CoffeePayments = () => {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter])
+  }, [statusFilter, dateFilter])
 
   const filterLots = useCallback(() => {
     let filtered = lots
@@ -372,6 +379,16 @@ export const CoffeePayments = () => {
               <option value="PAID">Paid</option>
             </select>
           </div>
+          {statusFilter === 'PAID' && (
+            <div>
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              />
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -384,7 +401,7 @@ export const CoffeePayments = () => {
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Unit Price</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Total Amount</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Status</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">{statusFilter === 'PAID' ? 'Payment Date' : 'Date'}</th>
                 <th className="text-center py-3 px-4 font-semibold text-gray-700">Actions</th>
               </tr>
             </thead>
@@ -392,7 +409,9 @@ export const CoffeePayments = () => {
               {filteredLots.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-8 text-gray-500">
-                    No coffee lots ready for payment
+                    {statusFilter === 'PAID'
+                      ? `No paid transactions found for ${new Date(dateFilter).toLocaleDateString()}`
+                      : 'No coffee lots found'}
                   </td>
                 </tr>
               ) : (
@@ -415,7 +434,7 @@ export const CoffeePayments = () => {
                         {lot.finance_status}
                       </span>
                     </td>
-                    <td className="py-3 px-4">{formatDate(lot.assessed_at)}</td>
+                    <td className="py-3 px-4">{formatDate(statusFilter === 'PAID' ? lot.updated_at : lot.assessed_at)}</td>
                     <td className="py-3 px-4 text-center">
                       {lot.finance_status === 'READY_FOR_FINANCE' && (
                         <PermissionGate roles={['Super Admin', 'Manager', 'Administrator', 'Finance']}>
