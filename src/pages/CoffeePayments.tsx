@@ -34,7 +34,7 @@ export const CoffeePayments = () => {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('PAID')
-  const [dateFilter, setDateFilter] = useState<string>(new Date().toISOString().split('T')[0])
+  const [dateFilter, setDateFilter] = useState<string>('')
   const [selectedLot, setSelectedLot] = useState<CoffeeLot | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('cash')
@@ -378,6 +378,8 @@ export const CoffeePayments = () => {
   const handleExport = () => {
     const exportData = filteredLots.map(lot => ({
       'Record ID': lot.coffee_record_id || 'N/A',
+      'Supplier Name': lot.supplier_name,
+      'Supplier Code': lot.supplier_code,
       'Assessed By': lot.assessed_by,
       'Quantity (kg)': lot.quantity_kg,
       'Unit Price': lot.unit_price_ugx,
@@ -385,7 +387,7 @@ export const CoffeePayments = () => {
       'Status': lot.finance_status,
       'Date': formatDate(lot.assessed_at)
     }))
-    exportToCSV(exportData, `coffee-lots-${statusFilter}-${new Date().toISOString().split('T')[0]}`)
+    exportToCSV(exportData, `coffee-payments-${statusFilter}-${new Date().toISOString().split('T')[0]}`)
   }
 
   if (loading) {
@@ -444,13 +446,21 @@ export const CoffeePayments = () => {
             </select>
           </div>
           {statusFilter === 'PAID' && (
-            <div>
+            <div className="flex items-center gap-2">
               <input
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               />
+              {dateFilter && (
+                <button
+                  onClick={() => setDateFilter('')}
+                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 underline"
+                >
+                  Clear
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -460,6 +470,7 @@ export const CoffeePayments = () => {
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Record ID</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-700">Supplier</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-700">Assessed By</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Quantity (kg)</th>
                 <th className="text-right py-3 px-4 font-semibold text-gray-700">Unit Price</th>
@@ -472,9 +483,11 @@ export const CoffeePayments = () => {
             <tbody>
               {filteredLots.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-8 text-gray-500">
-                    {statusFilter === 'PAID'
+                  <td colSpan={9} className="text-center py-8 text-gray-500">
+                    {statusFilter === 'PAID' && dateFilter
                       ? `No paid transactions found for ${new Date(dateFilter).toLocaleDateString()}`
+                      : statusFilter === 'PAID'
+                      ? 'No paid transactions found'
                       : 'No coffee lots found'}
                   </td>
                 </tr>
@@ -487,6 +500,12 @@ export const CoffeePayments = () => {
                         {lot.payment_source === 'cash_management' && (
                           <span className="text-xs text-blue-600 mt-1">Via Cash Mgmt</span>
                         )}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex flex-col">
+                        <span className="font-medium">{lot.supplier_name}</span>
+                        <span className="text-xs text-gray-500">{lot.supplier_code}</span>
                       </div>
                     </td>
                     <td className="py-3 px-4">{lot.assessed_by}</td>
