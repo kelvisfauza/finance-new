@@ -19,6 +19,8 @@ import { VerifySearch } from './pages/VerifySearch'
 import { VerifyResult } from './pages/VerifyResult'
 import { AdminVerifications } from './pages/AdminVerifications'
 import { VerificationAuditLogs } from './pages/VerificationAuditLogs'
+import FieldAssessment from './pages/FieldAssessment'
+import FieldAssessments from './pages/FieldAssessments'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +63,8 @@ function App() {
             <Route path="reports/:reportType" element={<Reports />} />
             <Route path="admin/verifications" element={<AdminVerifications />} />
             <Route path="admin/verifications/logs" element={<VerificationAuditLogs />} />
+            <Route path="field-assessments" element={<FieldAssessments />} />
+            <Route path="field-assessment/new" element={<FieldAssessment />} />
             <Route path="settings" element={<Settings />} />
           </Route>
 

@@ -9,7 +9,8 @@ import {
   Users,
   FileText,
   Settings,
-  Shield
+  Shield,
+  MapPin
 } from 'lucide-react'
 import { PermissionGate } from './PermissionGate'
 import { usePendingCounts } from '../hooks/usePendingCounts'
@@ -22,6 +23,7 @@ const navItems = [
   { path: '/expenses', label: 'Expenses', icon: Receipt, countKey: 'expenses' },
   { path: '/requisitions', label: 'Requisitions', icon: FileTextIcon, countKey: 'requisitions' },
   { path: '/hr-payments', label: 'HR Payments', icon: Users, countKey: 'hrPayments' },
+  { path: '/field-assessments', label: 'Field Assessments', icon: MapPin, countKey: null },
   { path: '/reports', label: 'Reports', icon: FileText, countKey: null },
 ]
 
