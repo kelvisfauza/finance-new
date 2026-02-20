@@ -21,6 +21,8 @@ import { AdminVerifications } from './pages/AdminVerifications'
 import { VerificationAuditLogs } from './pages/VerificationAuditLogs'
 import FieldAssessment from './pages/FieldAssessment'
 import FieldAssessments from './pages/FieldAssessments'
+import StandaloneAssessment from './pages/StandaloneAssessment'
+import StandaloneAssessmentList from './pages/StandaloneAssessmentList'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -41,6 +43,9 @@ function App() {
 
           <Route path="/verify" element={<VerifySearch />} />
           <Route path="/verify/:code" element={<VerifyResult />} />
+
+          <Route path="/assessment" element={<StandaloneAssessment />} />
+          <Route path="/assessment-list" element={<StandaloneAssessmentList />} />
 
           <Route
             path="/"
