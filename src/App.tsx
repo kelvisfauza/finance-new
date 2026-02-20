@@ -23,6 +23,7 @@ import FieldAssessment from './pages/FieldAssessment'
 import FieldAssessments from './pages/FieldAssessments'
 import StandaloneAssessment from './pages/StandaloneAssessment'
 import StandaloneAssessmentList from './pages/StandaloneAssessmentList'
+import PublicAssessment from './pages/PublicAssessment'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,6 +45,7 @@ function App() {
           <Route path="/verify" element={<VerifySearch />} />
           <Route path="/verify/:code" element={<VerifyResult />} />
 
+          <Route path="/field-assessment-form" element={<PublicAssessment />} />
           <Route path="/assessment" element={<StandaloneAssessment />} />
           <Route path="/assessment-list" element={<StandaloneAssessmentList />} />
 
