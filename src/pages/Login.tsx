@@ -1,28 +1,100 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { LogIn } from 'lucide-react'
+import { useLoginSMSVerification } from '../hooks/useLoginSMSVerification'
+import { supabase } from '../lib/supabaseClient'
+import { LogIn, Shield } from 'lucide-react'
 
 export const Login = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [step, setStep] = useState<'credentials' | 'verification'>('credentials')
+  const [verificationCode, setVerificationCode] = useState('')
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null)
+  const [phoneNumber, setPhoneNumber] = useState<string | null>(null)
   const { signIn } = useAuth()
+  const { sendLoginVerificationCode, verifyLoginCode, loading: smsLoading } = useLoginSMSVerification()
   const navigate = useNavigate()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      await signIn(email, password)
-      navigate('/')
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) throw authError
+
+      if (!authData.user) throw new Error('Authentication failed')
+
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
+        .select('phone_number')
+        .eq('email', email)
+        .maybeSingle()
+
+      if (employeeError) throw employeeError
+
+      if (!employeeData?.phone_number) {
+        throw new Error('Phone number not found. Please contact IT support.')
+      }
+
+      setPendingUserId(authData.user.id)
+      setPhoneNumber(employeeData.phone_number)
+
+      const result = await sendLoginVerificationCode(authData.user.id, employeeData.phone_number)
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to send verification code')
+      }
+
+      await supabase.auth.signOut()
+
+      setStep('verification')
     } catch (err: any) {
       setError(err.message || 'Failed to sign in')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleVerificationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    try {
+      if (!pendingUserId) throw new Error('Session expired. Please try again.')
+
+      const result = await verifyLoginCode(pendingUserId, verificationCode)
+
+      if (!result.success) {
+        throw new Error(result.error || 'Verification failed')
+      }
+
+      await signIn(email, password)
+      navigate('/')
+    } catch (err: any) {
+      setError(err.message || 'Failed to verify code')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendCode = async () => {
+    if (!pendingUserId || !phoneNumber) return
+
+    setError('')
+    const result = await sendLoginVerificationCode(pendingUserId, phoneNumber)
+
+    if (!result.success) {
+      setError(result.error || 'Failed to resend code')
     }
   }
 
@@ -41,10 +113,13 @@ export const Login = () => {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Great Pearl Finance
             </h1>
-            <p className="text-gray-600">Finance Department Portal</p>
+            <p className="text-gray-600">
+              {step === 'credentials' ? 'Finance Department Portal' : 'SMS Verification'}
+            </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {step === 'credentials' ? (
+            <form onSubmit={handleCredentialsSubmit} className="space-y-6">
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                 {error}
@@ -83,22 +158,103 @@ export const Login = () => {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || smsLoading}
               className="w-full flex items-center justify-center px-4 py-3 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 focus:ring-4 focus:ring-emerald-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? (
+              {loading || smsLoading ? (
                 <>
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Signing in...
+                  {smsLoading ? 'Sending code...' : 'Verifying...'}
                 </>
               ) : (
                 <>
                   <LogIn className="w-5 h-5 mr-2" />
-                  Sign In
+                  Continue
                 </>
               )}
             </button>
           </form>
+          ) : (
+            <form onSubmit={handleVerificationSubmit} className="space-y-6">
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm">
+                <div className="flex items-start">
+                  <Shield className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Verification code sent</p>
+                    <p className="text-xs mt-1">
+                      Please enter the 6-digit code sent to {phoneNumber}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-2">
+                  Verification Code
+                </label>
+                <input
+                  id="code"
+                  type="text"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-center text-2xl tracking-widest"
+                  placeholder="000000"
+                  maxLength={6}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || verificationCode.length !== 6}
+                className="w-full flex items-center justify-center px-4 py-3 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 focus:ring-4 focus:ring-emerald-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-5 h-5 mr-2" />
+                    Verify & Sign In
+                  </>
+                )}
+              </button>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={handleResendCode}
+                  disabled={smsLoading}
+                  className="text-sm text-emerald-600 hover:text-emerald-700 font-medium disabled:opacity-50"
+                >
+                  {smsLoading ? 'Sending...' : 'Resend Code'}
+                </button>
+              </div>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('credentials')
+                    setVerificationCode('')
+                    setError('')
+                  }}
+                  className="text-sm text-gray-600 hover:text-gray-700"
+                >
+                  Back to login
+                </button>
+              </div>
+            </form>
+          )}
 
           <div className="mt-6 pt-6 border-t border-gray-200 text-center text-sm text-gray-600">
             <p>Finance Department Access Only</p>

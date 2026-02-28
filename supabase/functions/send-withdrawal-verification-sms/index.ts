@@ -7,9 +7,11 @@ const corsHeaders = {
 }
 
 interface SMSRequest {
-  phone: string
+  phoneNumber?: string
+  phone?: string
   code: string
   approverName?: string
+  type?: 'withdrawal' | 'login'
 }
 
 Deno.serve(async (req: Request) => {
@@ -21,9 +23,10 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { phone, code, approverName }: SMSRequest = await req.json()
+    const { phoneNumber, phone, code, approverName, type = 'withdrawal' }: SMSRequest = await req.json()
 
-    if (!phone || !code) {
+    const phoneNum = phoneNumber || phone
+    if (!phoneNum || !code) {
       return new Response(
         JSON.stringify({ error: "Phone number and verification code are required" }),
         {
@@ -45,12 +48,17 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    const cleanPhone = phone.replace(/\D/g, '')
+    const cleanPhone = phoneNum.replace(/\D/g, '')
     const formattedPhone = cleanPhone.startsWith('256') ? cleanPhone : `256${cleanPhone}`
 
-    const message = approverName
-      ? `Hello ${approverName}, your Great Pearl Finance withdrawal approval code is: ${code}. Valid for 5 minutes. Do not share this code.`
-      : `Your Great Pearl Finance withdrawal approval code is: ${code}. Valid for 5 minutes. Do not share this code.`
+    let message: string
+    if (type === 'login') {
+      message = `Your Great Pearl Finance login verification code is: ${code}. Valid for 5 minutes. Do not share this code.`
+    } else {
+      message = approverName
+        ? `Hello ${approverName}, your Great Pearl Finance withdrawal approval code is: ${code}. Valid for 5 minutes. Do not share this code.`
+        : `Your Great Pearl Finance withdrawal approval code is: ${code}. Valid for 5 minutes. Do not share this code.`
+    }
 
     const smsResponse = await fetch("https://yoolasms.com/api/v1/send", {
       method: "POST",
