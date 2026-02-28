@@ -21,7 +21,7 @@ interface AuthContextType {
   user: User | null
   employee: Employee | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (userOrEmail: User | string, sessionOrPassword?: any) => Promise<void>
   signOut: () => Promise<void>
   hasPermission: (permission: string) => boolean
   hasRole: (roles: string | string[]) => boolean
@@ -139,20 +139,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async (userOrEmail: User | string, sessionOrPassword?: any) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
+      let userData: User | null = null
 
-      if (error) throw error
+      if (typeof userOrEmail === 'string') {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: userOrEmail,
+          password: sessionOrPassword
+        })
 
-      if (data.user) {
+        if (error) throw error
+        userData = data.user
+      } else {
+        userData = userOrEmail
+      }
+
+      if (userData) {
         const { data: employeeData, error: employeeError } = await supabase
           .from('employees')
           .select('*')
-          .eq('auth_user_id', data.user.id)
+          .eq('auth_user_id', userData.id)
           .eq('status', 'Active')
           .maybeSingle()
 
@@ -178,7 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         setEmployee(employeeData)
-        setUser(data.user)
+        setUser(userData)
       }
     } catch (error) {
       throw error
