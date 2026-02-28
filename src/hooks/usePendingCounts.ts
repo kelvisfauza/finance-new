@@ -57,6 +57,7 @@ export const usePendingCounts = () => {
       const { data: moneyData, error: moneyError } = await supabase
         .from('money_requests')
         .select('id')
+        .neq('request_type', 'Mid-Month Salary')
         .eq('admin_approved', true)
         .eq('finance_approved', false)
         .in('status', ['approved', 'Approved', 'Pending Finance', 'pending'])

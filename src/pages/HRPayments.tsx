@@ -82,6 +82,7 @@ export const HRPayments = () => {
       let moneyQuery = supabase
         .from('money_requests')
         .select('*')
+        .neq('request_type', 'Mid-Month Salary')
 
       if (showApproved) {
         moneyQuery = moneyQuery.eq('finance_approved', true)
