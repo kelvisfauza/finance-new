@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { Phone, Banknote, CheckCircle, XCircle, Printer, Clock } from 'lucide-react'
+import { Phone, Banknote, CheckCircle, XCircle, Printer, Clock, Building, AlertCircle, Wallet } from 'lucide-react'
 
 interface WithdrawalRequest {
   id: string
@@ -9,24 +9,51 @@ interface WithdrawalRequest {
   amount: number
   reason: string
   status: string
+  request_type: string
   phone_number: string | null
   payment_channel: string
+  disbursement_bank_name: string | null
+  disbursement_account_number: string | null
+  disbursement_account_name: string | null
   requested_by: string
   created_at: string
+  requires_three_approvals: boolean
+  admin_approved: boolean
+  admin_approved_1: boolean
+  admin_approved_2: boolean
+  admin_approved_3: boolean
+  wallet_balance_verified: boolean
   employee_name?: string
+  wallet_balance?: number
 }
 
 export const WithdrawalRequestsManager = () => {
   const [requests, setRequests] = useState<WithdrawalRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
+  const [rejectionReason, setRejectionReason] = useState<string>('')
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchCurrentUser()
+  }, [])
+
+  const fetchCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user?.email) {
+      setCurrentUserEmail(user.email)
+    }
+  }
 
   const fetchRequests = async () => {
     try {
       const { data, error } = await supabase
         .from('money_requests')
         .select('*')
+        .eq('request_type', 'withdrawal')
         .eq('status', 'pending')
+        .eq('admin_approved', true)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -39,9 +66,16 @@ export const WithdrawalRequestsManager = () => {
             .eq('email', req.requested_by)
             .maybeSingle()
 
+          const { data: walletData } = await supabase
+            .from('user_accounts')
+            .select('current_balance')
+            .eq('user_id', req.user_id)
+            .maybeSingle()
+
           return {
             ...req,
-            employee_name: empData?.name || req.requested_by
+            employee_name: empData?.name || req.requested_by,
+            wallet_balance: walletData?.current_balance || 0
           }
         })
       )
@@ -67,62 +101,115 @@ export const WithdrawalRequestsManager = () => {
     }
   }, [])
 
-  const handleApprove = async (request: WithdrawalRequest, paymentMethod: 'cash' | 'mobile_money') => {
-    if (!confirm(`Approve ${formatCurrency(request.amount)} payment to ${request.employee_name}?`)) {
+  const canApprove = (request: WithdrawalRequest): { can: boolean; reason?: string } => {
+    if (request.requested_by === currentUserEmail) {
+      return { can: false, reason: 'You cannot approve your own withdrawal request' }
+    }
+
+    if (!request.admin_approved) {
+      return { can: false, reason: 'Admin approval required first' }
+    }
+
+    if (request.requires_three_approvals && (!request.admin_approved_1 || !request.admin_approved_2 || !request.admin_approved_3)) {
+      return { can: false, reason: 'All 3 admin approvals required for this amount' }
+    }
+
+    if ((request.wallet_balance || 0) < request.amount) {
+      return { can: false, reason: `Insufficient wallet balance (${formatCurrency(request.wallet_balance || 0)} available)` }
+    }
+
+    return { can: true }
+  }
+
+  const handleApprove = async (request: WithdrawalRequest) => {
+    const approvalCheck = canApprove(request)
+    if (!approvalCheck.can) {
+      alert(`Cannot approve: ${approvalCheck.reason}`)
+      return
+    }
+
+    const confirmMsg = `Approve ${formatCurrency(request.amount)} withdrawal to ${request.employee_name}?
+
+Wallet Balance: ${formatCurrency(request.wallet_balance || 0)}
+After Withdrawal: ${formatCurrency((request.wallet_balance || 0) - request.amount)}
+
+Payment Method: ${request.payment_channel}`
+
+    if (!confirm(confirmMsg)) {
       return
     }
 
     setProcessing(request.id)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      const approvedBy = user?.email || 'Finance'
+      const now = new Date().toISOString()
 
       const { error } = await supabase
         .from('money_requests')
         .update({
           status: 'approved',
-          approved_at: new Date().toISOString(),
-          approved_by: approvedBy,
-          payment_channel: paymentMethod === 'cash' ? 'CASH' : 'MOBILE_MONEY'
+          approved_at: now,
+          approved_by: currentUserEmail,
+          finance_approved: true,
+          finance_approved_by: currentUserEmail,
+          finance_approved_at: now,
+          wallet_balance_verified: true,
+          wallet_balance_at_approval: request.wallet_balance || 0
         })
         .eq('id', request.id)
 
       if (error) throw error
 
-      alert(`Payment of ${formatCurrency(request.amount)} approved for ${request.employee_name}`)
+      alert(`✓ Withdrawal approved! ${formatCurrency(request.amount)} deducted from wallet.`)
 
-      if (paymentMethod === 'cash') {
+      if (request.payment_channel === 'CASH') {
         printCashSlip(request)
+      } else if (request.payment_channel === 'MOBILE_MONEY') {
+        alert(`Mobile money payment of ${formatCurrency(request.amount)} to ${request.phone_number} will be processed.`)
+      } else if (request.payment_channel === 'BANK') {
+        alert(`Bank transfer of ${formatCurrency(request.amount)} to ${request.disbursement_account_name} will be processed.`)
       }
 
       fetchRequests()
     } catch (error: any) {
       console.error('Error approving request:', error)
-      alert(`Failed to approve request: ${error.message}`)
+      alert(`Failed to approve: ${error.message}`)
     } finally {
       setProcessing(null)
     }
   }
 
-  const handleReject = async (requestId: string) => {
-    if (!confirm('Are you sure you want to reject this withdrawal request?')) {
+  const handleReject = async (request: WithdrawalRequest) => {
+    setRejectingId(request.id)
+    setRejectionReason('')
+  }
+
+  const confirmReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert('Please provide a rejection reason')
       return
     }
 
-    setProcessing(requestId)
+    if (!rejectingId) return
+
+    setProcessing(rejectingId)
     try {
       const { error } = await supabase
         .from('money_requests')
-        .update({ status: 'rejected' })
-        .eq('id', requestId)
+        .update({
+          status: 'rejected',
+          rejection_reason: rejectionReason.trim()
+        })
+        .eq('id', rejectingId)
 
       if (error) throw error
 
-      alert('Request rejected')
+      alert(`Request rejected. User will be notified: "${rejectionReason}"`)
+      setRejectingId(null)
+      setRejectionReason('')
       fetchRequests()
     } catch (error: any) {
       console.error('Error rejecting request:', error)
-      alert(`Failed to reject request: ${error.message}`)
+      alert(`Failed to reject: ${error.message}`)
     } finally {
       setProcessing(null)
     }
@@ -179,90 +266,169 @@ export const WithdrawalRequestsManager = () => {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-          <Clock className="w-5 h-5 mr-2 text-orange-600" />
-          Pending Withdrawal Requests
-        </h3>
-        {requests.length > 0 && (
-          <span className="px-3 py-1 bg-orange-100 text-orange-800 text-sm font-medium rounded-full">
-            {requests.length} pending
-          </span>
+    <>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <Clock className="w-5 h-5 mr-2 text-green-600" />
+            Withdrawal Requests - Finance Approval
+          </h3>
+          {requests.length > 0 && (
+            <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+              {requests.length} ready for payment
+            </span>
+          )}
+        </div>
+
+        <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
+          <p className="text-sm text-green-900">
+            <strong>Finance Approval:</strong> These withdrawal requests have completed all required admin approvals.
+            Verify wallet balance and disbursement details before approving.
+          </p>
+        </div>
+
+        {requests.length === 0 ? (
+          <div className="text-center py-8">
+            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+            <p className="text-gray-600">No withdrawal requests ready for payment</p>
+            <p className="text-sm text-gray-500 mt-1">Requests will appear here after admin approval</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {requests.map((req) => {
+              const approvalCheck = canApprove(req)
+              const hasSufficientBalance = (req.wallet_balance || 0) >= req.amount
+
+              return (
+                <div
+                  key={req.id}
+                  className={`border rounded-lg p-4 ${
+                    !approvalCheck.can ? 'border-red-300 bg-red-50' : 'border-gray-200'
+                  }`}
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium text-gray-900">{req.employee_name}</p>
+                        {req.requires_three_approvals && (
+                          <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium rounded">
+                            3 Admin Approvals
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">{formatCurrency(req.amount)}</p>
+                      <p className="text-sm text-gray-600 mt-1">{req.reason}</p>
+                      <p className="text-xs text-gray-500 mt-1">{formatDate(req.created_at)}</p>
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <Wallet className={`w-4 h-4 ${hasSufficientBalance ? 'text-green-500' : 'text-red-500'}`} />
+                        <span className={`text-sm font-medium ${hasSufficientBalance ? 'text-green-700' : 'text-red-700'}`}>
+                          Wallet: {formatCurrency(req.wallet_balance || 0)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      {req.payment_channel === 'MOBILE_MONEY' && (
+                        <div className="mb-2">
+                          <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full flex items-center justify-end">
+                            <Phone className="w-3 h-3 mr-1" />
+                            Mobile Money
+                          </span>
+                          <p className="text-xs text-gray-600 mt-1">{req.phone_number}</p>
+                        </div>
+                      )}
+                      {req.payment_channel === 'CASH' && (
+                        <span className="px-3 py-1 bg-gray-100 text-gray-800 text-sm font-medium rounded-full flex items-center">
+                          <Banknote className="w-3 h-3 mr-1" />
+                          Cash
+                        </span>
+                      )}
+                      {req.payment_channel === 'BANK' && (
+                        <div className="mb-2">
+                          <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full flex items-center justify-end">
+                            <Building className="w-3 h-3 mr-1" />
+                            Bank Transfer
+                          </span>
+                          <div className="text-xs text-gray-600 mt-1 text-left">
+                            <p><strong>Bank:</strong> {req.disbursement_bank_name}</p>
+                            <p><strong>A/C:</strong> {req.disbursement_account_number}</p>
+                            <p><strong>Name:</strong> {req.disbursement_account_name}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {!approvalCheck.can && (
+                    <div className="mb-3 p-2 bg-red-100 rounded border border-red-300 flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-red-800"><strong>Cannot Approve:</strong> {approvalCheck.reason}</p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2 pt-2 border-t border-gray-200">
+                    <button
+                      onClick={() => handleApprove(req)}
+                      disabled={!approvalCheck.can || processing === req.id}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-1" />
+                      {processing === req.id ? 'Processing...' : 'Approve Payment'}
+                    </button>
+                    <button
+                      onClick={() => handleReject(req)}
+                      disabled={processing === req.id}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center"
+                    >
+                      <XCircle className="w-4 h-4 mr-1" />
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
 
-      {requests.length === 0 ? (
-        <div className="text-center py-8">
-          <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-          <p className="text-gray-600">No pending requests</p>
-          <p className="text-sm text-gray-500 mt-1">All withdrawal requests have been processed</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {requests.map((req) => (
-            <div key={req.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">{req.employee_name}</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(req.amount)}</p>
-                  <p className="text-sm text-gray-600 mt-1">{req.reason}</p>
-                  <p className="text-xs text-gray-500 mt-1">{formatDate(req.created_at)}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {req.payment_channel === 'MOBILE_MONEY' ? (
-                    <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full flex items-center">
-                      <Phone className="w-3 h-3 mr-1" />
-                      Mobile Money
-                    </span>
-                  ) : (
-                    <span className="px-3 py-1 bg-gray-100 text-gray-800 text-sm font-medium rounded-full flex items-center">
-                      <Banknote className="w-3 h-3 mr-1" />
-                      Cash
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {req.phone_number && (
-                <p className="text-sm text-gray-600 mb-3">
-                  <strong>Phone:</strong> {req.phone_number}
-                </p>
-              )}
-
-              <div className="flex gap-2 pt-2 border-t border-gray-200">
-                {req.payment_channel === 'MOBILE_MONEY' ? (
-                  <button
-                    onClick={() => handleApprove(req, 'mobile_money')}
-                    disabled={processing === req.id}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center"
-                  >
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    {processing === req.id ? 'Processing...' : 'Pay Mobile Money'}
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleApprove(req, 'cash')}
-                    disabled={processing === req.id}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center"
-                  >
-                    <Printer className="w-4 h-4 mr-1" />
-                    {processing === req.id ? 'Processing...' : 'Pay Cash & Print'}
-                  </button>
-                )}
-                <button
-                  onClick={() => handleReject(req.id)}
-                  disabled={processing === req.id}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center"
-                >
-                  <XCircle className="w-4 h-4 mr-1" />
-                  Reject
-                </button>
-              </div>
+      {rejectingId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Withdrawal Request</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Please provide a clear reason for rejection. The user will receive this explanation via SMS.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+              rows={4}
+              autoFocus
+            />
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={confirmReject}
+                disabled={!rejectionReason.trim() || processing === rejectingId}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {processing === rejectingId ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+              <button
+                onClick={() => {
+                  setRejectingId(null)
+                  setRejectionReason('')
+                }}
+                disabled={processing === rejectingId}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 font-medium"
+              >
+                Cancel
+              </button>
             </div>
-          ))}
+          </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
