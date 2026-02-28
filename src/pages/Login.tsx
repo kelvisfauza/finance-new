@@ -80,8 +80,16 @@ export const Login = () => {
         throw new Error(result.error || 'Verification failed')
       }
 
-      await signIn(email, password)
-      navigate('/')
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) throw authError
+      if (!authData.user) throw new Error('Authentication failed')
+
+      await signIn(authData.user, authData.session)
+      navigate('/dashboard')
     } catch (err: any) {
       setError(err.message || 'Failed to verify code')
     } finally {
