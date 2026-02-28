@@ -39,6 +39,8 @@ interface WithdrawalRequest {
   employee_name?: string
   employee_position?: string
   wallet_balance?: number
+  pending_withdrawals?: number
+  available_balance?: number
   approvers?: Approver[]
 }
 
@@ -79,10 +81,9 @@ export const WithdrawalRequestsManager = () => {
             .eq('email', req.requester_email)
             .maybeSingle()
 
+          // Fetch wallet balance using RPC function that aggregates ledger_entries
           const { data: walletData } = await supabase
-            .from('user_accounts')
-            .select('current_balance')
-            .eq('user_id', req.user_id)
+            .rpc('get_user_balance_safe', { user_email: req.requester_email })
             .maybeSingle()
 
           // Fetch approver details
@@ -121,7 +122,9 @@ export const WithdrawalRequestsManager = () => {
             payment_channel: req.disbursement_method || 'MOBILE_MONEY',
             employee_name: req.requester_name || empData?.name || req.requester_email,
             employee_position: empData?.position,
-            wallet_balance: walletData?.current_balance || 0,
+            wallet_balance: walletData?.wallet_balance || 0,
+            pending_withdrawals: walletData?.pending_withdrawals || 0,
+            available_balance: walletData?.available_balance || 0,
             approvers
           }
         })
@@ -361,11 +364,27 @@ Payment Method: ${request.payment_channel}`
                       <p className="text-sm text-gray-600 mt-1">{req.reason}</p>
                       <p className="text-xs text-gray-500 mt-1">Requested: {formatDate(req.created_at)}</p>
 
-                      <div className="mt-3 flex items-center gap-2">
-                        <Wallet className={`w-4 h-4 ${hasSufficientBalance ? 'text-green-500' : 'text-red-500'}`} />
-                        <span className={`text-sm font-medium ${hasSufficientBalance ? 'text-green-700' : 'text-red-700'}`}>
-                          Wallet Balance: {formatCurrency(req.wallet_balance || 0)}
-                        </span>
+                      <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Wallet className="w-4 h-4 text-gray-600" />
+                          <span className="text-xs font-semibold text-gray-700">Wallet Details</span>
+                        </div>
+                        <div className="space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Total Balance:</span>
+                            <span className="font-medium text-gray-900">{formatCurrency(req.wallet_balance || 0)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Frozen (Pending):</span>
+                            <span className="font-medium text-orange-700">{formatCurrency(req.pending_withdrawals || 0)}</span>
+                          </div>
+                          <div className="flex justify-between pt-1 border-t border-gray-300">
+                            <span className="text-gray-700 font-semibold">Available:</span>
+                            <span className={`font-bold ${hasSufficientBalance ? 'text-green-700' : 'text-red-700'}`}>
+                              {formatCurrency(req.available_balance || 0)}
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
                       {req.approvers && req.approvers.length > 0 && (
