@@ -52,16 +52,15 @@ Deno.serve(async (req: Request) => {
       ? `Hello ${approverName}, your Great Pearl Finance withdrawal approval code is: ${code}. Valid for 5 minutes. Do not share this code.`
       : `Your Great Pearl Finance withdrawal approval code is: ${code}. Valid for 5 minutes. Do not share this code.`
 
-    const smsResponse = await fetch("https://sms.sunshineuganda.com/api/v1/sms/send", {
+    const smsResponse = await fetch("https://yoolasms.com/api/v1/send", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${smsApiKey}`,
       },
       body: JSON.stringify({
-        to: formattedPhone,
+        phone: formattedPhone,
         message: message,
-        sender_id: "GPCF",
+        api_key: smsApiKey,
       }),
     })
 
