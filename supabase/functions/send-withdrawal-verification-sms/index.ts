@@ -36,9 +36,9 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    const smsApiKey = Deno.env.get("SMS_API_KEY")
+    const smsApiKey = Deno.env.get("YOOLA_SMS_API_KEY")
     if (!smsApiKey) {
-      console.error("SMS_API_KEY not configured")
+      console.error("YOOLA_SMS_API_KEY not configured")
       return new Response(
         JSON.stringify({ error: "SMS service not configured" }),
         {
