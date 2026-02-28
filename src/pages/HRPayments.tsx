@@ -7,6 +7,9 @@ import { useSMSNotifications } from '../hooks/useSMSNotifications'
 import { useAuth } from '../contexts/AuthContext'
 import { PayslipPrint } from '../components/PayslipPrint'
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
+import { WithdrawalRequestForm } from '../components/finance/WithdrawalRequestForm'
+import { AdminWithdrawalApprovals } from '../components/finance/AdminWithdrawalApprovals'
+import { WithdrawalRequestsManager } from '../components/finance/WithdrawalRequestsManager'
 
 interface SalaryPayment {
   id: string
@@ -673,6 +676,18 @@ export const HRPayments = () => {
         </PermissionGate>
       </div>
 
+      {/* New Withdrawal System Components */}
+      <PermissionGate roles={['Super Admin', 'Manager', 'Administrator']}>
+        <AdminWithdrawalApprovals />
+      </PermissionGate>
+
+      <PermissionGate permissions={['Finance', 'Finance Management', 'Finance Approval']}>
+        <WithdrawalRequestsManager />
+      </PermissionGate>
+
+      <WithdrawalRequestForm onSuccess={fetchPayments} />
+
+      {/* Original Payment Requests System */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1">
