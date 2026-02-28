@@ -3,6 +3,13 @@ import { supabase } from '../../lib/supabaseClient'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import { Phone, Banknote, CheckCircle, XCircle, Printer, Clock, Building, AlertCircle, Wallet } from 'lucide-react'
 
+interface Approver {
+  email: string
+  name: string
+  position: string
+  approved_at: string
+}
+
 interface WithdrawalRequest {
   id: string
   user_id: string
@@ -30,7 +37,9 @@ interface WithdrawalRequest {
   admin_approved_2_by: string | null
   wallet_balance_verified: boolean
   employee_name?: string
+  employee_position?: string
   wallet_balance?: number
+  approvers?: Approver[]
 }
 
 export const WithdrawalRequestsManager = () => {
@@ -66,7 +75,7 @@ export const WithdrawalRequestsManager = () => {
         (allData || []).map(async (req: any) => {
           const { data: empData } = await supabase
             .from('employees')
-            .select('name')
+            .select('name, position')
             .eq('email', req.requester_email)
             .maybeSingle()
 
@@ -76,13 +85,44 @@ export const WithdrawalRequestsManager = () => {
             .eq('user_id', req.user_id)
             .maybeSingle()
 
+          // Fetch approver details
+          const approvers = []
+          if (req.admin_approved_1_by) {
+            const { data: approver1 } = await supabase
+              .from('employees')
+              .select('name, position')
+              .eq('email', req.admin_approved_1_by)
+              .maybeSingle()
+            approvers.push({
+              email: req.admin_approved_1_by,
+              name: approver1?.name || req.admin_approved_1_by,
+              position: approver1?.position || 'Admin',
+              approved_at: req.admin_approved_1_at
+            })
+          }
+          if (req.admin_approved_2_by) {
+            const { data: approver2 } = await supabase
+              .from('employees')
+              .select('name, position')
+              .eq('email', req.admin_approved_2_by)
+              .maybeSingle()
+            approvers.push({
+              email: req.admin_approved_2_by,
+              name: approver2?.name || req.admin_approved_2_by,
+              position: approver2?.position || 'Admin',
+              approved_at: req.admin_approved_2_at
+            })
+          }
+
           return {
             ...req,
             requested_by: req.requester_email,
             reason: 'Wallet Withdrawal',
             payment_channel: req.disbursement_method || 'MOBILE_MONEY',
             employee_name: req.requester_name || empData?.name || req.requester_email,
-            wallet_balance: walletData?.current_balance || 0
+            employee_position: empData?.position,
+            wallet_balance: walletData?.current_balance || 0,
+            approvers
           }
         })
       )
@@ -311,22 +351,41 @@ Payment Method: ${request.payment_channel}`
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-medium text-gray-900">{req.employee_name}</p>
-                        {req.admin_approved_1_by && req.admin_approved_2_by && (
-                          <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded">
-                            2 Admin Approvals ✓
+                        {req.employee_position && (
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded">
+                            {req.employee_position}
                           </span>
                         )}
                       </div>
                       <p className="text-2xl font-bold text-gray-900">{formatCurrency(req.amount)}</p>
                       <p className="text-sm text-gray-600 mt-1">{req.reason}</p>
-                      <p className="text-xs text-gray-500 mt-1">{formatDate(req.created_at)}</p>
+                      <p className="text-xs text-gray-500 mt-1">Requested: {formatDate(req.created_at)}</p>
 
-                      <div className="mt-2 flex items-center gap-2">
+                      <div className="mt-3 flex items-center gap-2">
                         <Wallet className={`w-4 h-4 ${hasSufficientBalance ? 'text-green-500' : 'text-red-500'}`} />
                         <span className={`text-sm font-medium ${hasSufficientBalance ? 'text-green-700' : 'text-red-700'}`}>
-                          Wallet: {formatCurrency(req.wallet_balance || 0)}
+                          Wallet Balance: {formatCurrency(req.wallet_balance || 0)}
                         </span>
                       </div>
+
+                      {req.approvers && req.approvers.length > 0 && (
+                        <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                          <p className="text-xs font-semibold text-green-900 mb-2">Admin Approvals ({req.approvers.length})</p>
+                          <div className="space-y-2">
+                            {req.approvers.map((approver, idx) => (
+                              <div key={idx} className="flex items-start justify-between text-xs">
+                                <div className="flex-1">
+                                  <p className="font-medium text-green-900">{approver.name}</p>
+                                  <p className="text-green-700">{approver.position}</p>
+                                </div>
+                                <div className="text-right text-green-700">
+                                  <p>{formatDate(approver.approved_at)}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="text-right">
