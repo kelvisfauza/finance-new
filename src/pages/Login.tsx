@@ -35,20 +35,20 @@ export const Login = () => {
 
       const { data: employeeData, error: employeeError } = await supabase
         .from('employees')
-        .select('phone_number')
+        .select('phone')
         .eq('email', email)
         .maybeSingle()
 
       if (employeeError) throw employeeError
 
-      if (!employeeData?.phone_number) {
+      if (!employeeData?.phone) {
         throw new Error('Phone number not found. Please contact IT support.')
       }
 
       setPendingUserId(authData.user.id)
-      setPhoneNumber(employeeData.phone_number)
+      setPhoneNumber(employeeData.phone)
 
-      const result = await sendLoginVerificationCode(authData.user.id, employeeData.phone_number)
+      const result = await sendLoginVerificationCode(authData.user.id, employeeData.phone)
 
       if (!result.success) {
         throw new Error(result.error || 'Failed to send verification code')
