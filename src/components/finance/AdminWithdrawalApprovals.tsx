@@ -178,10 +178,12 @@ export const AdminWithdrawalApprovals = () => {
     setProcessing(request.id)
     try {
       const { error } = await supabase
-        .from('money_requests')
+        .from('withdrawal_requests')
         .update({
           status: 'rejected',
-          rejection_reason: reason
+          rejection_reason: reason,
+          rejected_by: currentUserEmail,
+          rejected_at: new Date().toISOString()
         })
         .eq('id', request.id)
 
