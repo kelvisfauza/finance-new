@@ -27,6 +27,13 @@ export const usePendingCounts = () => {
           fetchCounts()
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'money_requests' },
+        () => {
+          fetchCounts()
+        }
+      )
       .subscribe()
 
     return () => {
