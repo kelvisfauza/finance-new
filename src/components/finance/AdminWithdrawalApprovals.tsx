@@ -42,7 +42,7 @@ export const AdminWithdrawalApprovals = () => {
 
     const channel = supabase
       .channel('admin-withdrawal-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'money_requests' }, fetchRequests)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawal_requests' }, fetchRequests)
       .subscribe()
 
     return () => {
@@ -60,10 +60,9 @@ export const AdminWithdrawalApprovals = () => {
   const fetchRequests = async () => {
     try {
       const { data, error } = await supabase
-        .from('money_requests')
+        .from('withdrawal_requests')
         .select('*')
-        .eq('request_type', 'withdrawal')
-        .eq('status', 'pending')
+        .in('status', ['pending', 'pending_admin'])
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -73,12 +72,13 @@ export const AdminWithdrawalApprovals = () => {
           const { data: empData } = await supabase
             .from('employees')
             .select('name')
-            .eq('email', req.requested_by)
+            .eq('email', req.requester_email)
             .maybeSingle()
 
           return {
             ...req,
-            employee_name: empData?.name || req.requested_by
+            requested_by: req.requester_email,
+            employee_name: req.requester_name || empData?.name || req.requester_email
           }
         })
       )
@@ -134,32 +134,25 @@ export const AdminWithdrawalApprovals = () => {
       const now = new Date().toISOString()
       let updateData: any = {}
 
-      if (!request.admin_approved_1) {
+      if (!request.admin_approved_1_by) {
         updateData = {
-          admin_approved_1: true,
           admin_approved_1_by: currentUserEmail,
           admin_approved_1_at: now
         }
-      } else if (!request.admin_approved_2 && request.requires_three_approvals) {
-        // Second approval completes the process (changed from requiring 3)
+      } else if (!request.admin_approved_2_by && request.requires_three_approvals) {
         updateData = {
-          admin_approved_2: true,
           admin_approved_2_by: currentUserEmail,
           admin_approved_2_at: now,
-          admin_approved: true,
-          admin_approved_by: currentUserEmail,
-          admin_approved_at: now
+          status: 'pending_finance'
         }
       }
 
-      if (request.requires_three_approvals === false && !request.admin_approved_1) {
-        updateData.admin_approved = true
-        updateData.admin_approved_by = currentUserEmail
-        updateData.admin_approved_at = now
+      if (request.requires_three_approvals === false && !request.admin_approved_1_by) {
+        updateData.status = 'pending_finance'
       }
 
       const { error } = await supabase
-        .from('money_requests')
+        .from('withdrawal_requests')
         .update(updateData)
         .eq('id', request.id)
 

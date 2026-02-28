@@ -12,16 +12,22 @@ interface WithdrawalRequest {
   request_type: string
   phone_number: string | null
   payment_channel: string
+  disbursement_method: string | null
+  disbursement_phone: string | null
   disbursement_bank_name: string | null
   disbursement_account_number: string | null
   disbursement_account_name: string | null
   requested_by: string
+  requester_email: string
+  requester_name: string | null
   created_at: string
   requires_three_approvals: boolean
   admin_approved: boolean
   admin_approved_1: boolean
   admin_approved_2: boolean
   admin_approved_3: boolean
+  admin_approved_1_by: string | null
+  admin_approved_2_by: string | null
   wallet_balance_verified: boolean
   employee_name?: string
   wallet_balance?: number
@@ -48,38 +54,20 @@ export const WithdrawalRequestsManager = () => {
 
   const fetchRequests = async () => {
     try {
-      // Fetch all pending withdrawal requests
       const { data: allData, error } = await supabase
-        .from('money_requests')
+        .from('withdrawal_requests')
         .select('*')
-        .eq('request_type', 'withdrawal')
-        .eq('status', 'pending')
+        .eq('status', 'pending_finance')
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
-      // Filter for requests that have required admin approvals
-      // Support both old system (admin_approved = true) and new system (admin_approved_1 & admin_approved_2)
-      const filteredData = (allData || []).filter((req: any) => {
-        // Old system: single admin_approved flag
-        if (req.admin_approved === true) return true
-
-        // New system: Check if enough admin approvals based on amount
-        if (req.amount <= 100000) {
-          // Amounts <= 100K need 1 admin approval
-          return req.admin_approved_1 === true
-        } else {
-          // Amounts > 100K need 2 admin approvals (updated from 3)
-          return req.admin_approved_1 === true && req.admin_approved_2 === true
-        }
-      })
-
       const enrichedRequests = await Promise.all(
-        filteredData.map(async (req: any) => {
+        (allData || []).map(async (req: any) => {
           const { data: empData } = await supabase
             .from('employees')
             .select('name')
-            .eq('email', req.requested_by)
+            .eq('email', req.requester_email)
             .maybeSingle()
 
           const { data: walletData } = await supabase
@@ -90,7 +78,10 @@ export const WithdrawalRequestsManager = () => {
 
           return {
             ...req,
-            employee_name: empData?.name || req.requested_by,
+            requested_by: req.requester_email,
+            reason: 'Wallet Withdrawal',
+            payment_channel: req.disbursement_method || 'MOBILE_MONEY',
+            employee_name: req.requester_name || empData?.name || req.requester_email,
             wallet_balance: walletData?.current_balance || 0
           }
         })
@@ -108,8 +99,8 @@ export const WithdrawalRequestsManager = () => {
     fetchRequests()
 
     const channel = supabase
-      .channel('money-requests-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'money_requests' }, fetchRequests)
+      .channel('withdrawal-requests-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawal_requests' }, fetchRequests)
       .subscribe()
 
     return () => {
@@ -120,14 +111,6 @@ export const WithdrawalRequestsManager = () => {
   const canApprove = (request: WithdrawalRequest): { can: boolean; reason?: string } => {
     if (request.requested_by === currentUserEmail) {
       return { can: false, reason: 'You cannot approve your own withdrawal request' }
-    }
-
-    if (!request.admin_approved) {
-      return { can: false, reason: 'Admin approval required first' }
-    }
-
-    if (request.requires_three_approvals && (!request.admin_approved_1 || !request.admin_approved_2 || !request.admin_approved_3)) {
-      return { can: false, reason: 'All 3 admin approvals required for this amount' }
     }
 
     if ((request.wallet_balance || 0) < request.amount) {
@@ -160,16 +143,13 @@ Payment Method: ${request.payment_channel}`
       const now = new Date().toISOString()
 
       const { error } = await supabase
-        .from('money_requests')
+        .from('withdrawal_requests')
         .update({
           status: 'approved',
           approved_at: now,
           approved_by: currentUserEmail,
-          finance_approved: true,
           finance_approved_by: currentUserEmail,
-          finance_approved_at: now,
-          wallet_balance_verified: true,
-          wallet_balance_at_approval: request.wallet_balance || 0
+          finance_approved_at: now
         })
         .eq('id', request.id)
 
@@ -177,11 +157,14 @@ Payment Method: ${request.payment_channel}`
 
       alert(`✓ Withdrawal approved! ${formatCurrency(request.amount)} deducted from wallet.`)
 
-      if (request.payment_channel === 'CASH') {
+      const channel = (request as any).disbursement_method || request.payment_channel
+
+      if (channel === 'CASH') {
         printCashSlip(request)
-      } else if (request.payment_channel === 'MOBILE_MONEY') {
-        alert(`Mobile money payment of ${formatCurrency(request.amount)} to ${request.phone_number} will be processed.`)
-      } else if (request.payment_channel === 'BANK') {
+      } else if (channel === 'MOBILE_MONEY') {
+        const phone = (request as any).disbursement_phone || request.phone_number
+        alert(`Mobile money payment of ${formatCurrency(request.amount)} to ${phone} will be processed.`)
+      } else if (channel === 'BANK') {
         alert(`Bank transfer of ${formatCurrency(request.amount)} to ${request.disbursement_account_name} will be processed.`)
       }
 
@@ -210,10 +193,12 @@ Payment Method: ${request.payment_channel}`
     setProcessing(rejectingId)
     try {
       const { error } = await supabase
-        .from('money_requests')
+        .from('withdrawal_requests')
         .update({
           status: 'rejected',
-          rejection_reason: rejectionReason.trim()
+          rejection_reason: rejectionReason.trim(),
+          rejected_by: currentUserEmail,
+          rejected_at: new Date().toISOString()
         })
         .eq('id', rejectingId)
 
@@ -326,9 +311,9 @@ Payment Method: ${request.payment_channel}`
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-medium text-gray-900">{req.employee_name}</p>
-                        {req.requires_three_approvals && (
-                          <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium rounded">
-                            3 Admin Approvals
+                        {req.admin_approved_1_by && req.admin_approved_2_by && (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs font-medium rounded">
+                            2 Admin Approvals ✓
                           </span>
                         )}
                       </div>
@@ -345,22 +330,22 @@ Payment Method: ${request.payment_channel}`
                     </div>
 
                     <div className="text-right">
-                      {req.payment_channel === 'MOBILE_MONEY' && (
+                      {req.disbursement_method === 'MOBILE_MONEY' && (
                         <div className="mb-2">
                           <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full flex items-center justify-end">
                             <Phone className="w-3 h-3 mr-1" />
                             Mobile Money
                           </span>
-                          <p className="text-xs text-gray-600 mt-1">{req.phone_number}</p>
+                          <p className="text-xs text-gray-600 mt-1">{req.disbursement_phone || req.phone_number}</p>
                         </div>
                       )}
-                      {req.payment_channel === 'CASH' && (
+                      {req.disbursement_method === 'CASH' && (
                         <span className="px-3 py-1 bg-gray-100 text-gray-800 text-sm font-medium rounded-full flex items-center">
                           <Banknote className="w-3 h-3 mr-1" />
                           Cash
                         </span>
                       )}
-                      {req.payment_channel === 'BANK' && (
+                      {req.disbursement_method === 'BANK' && (
                         <div className="mb-2">
                           <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full flex items-center justify-end">
                             <Building className="w-3 h-3 mr-1" />
