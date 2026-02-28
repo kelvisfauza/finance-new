@@ -107,11 +107,12 @@ export const AdminWithdrawalApprovals = () => {
     }
 
     if (request.requires_three_approvals) {
+      // For amounts > 100K, need 2 admin approvals (changed from 3)
       if (!request.admin_approved_1) return { can: true }
       if (!request.admin_approved_2 && request.admin_approved_1_by !== currentUserEmail) return { can: true }
-      if (!request.admin_approved_3 && request.admin_approved_2_by !== currentUserEmail) return { can: true }
-      return { can: false, reason: 'All required admin approvals are complete' }
+      return { can: false, reason: 'All required admin approvals (2) are complete' }
     } else {
+      // For amounts <= 100K, need 1 admin approval
       if (!request.admin_approved_1) return { can: true }
       return { can: false, reason: 'Admin approval already provided' }
     }
@@ -140,16 +141,11 @@ export const AdminWithdrawalApprovals = () => {
           admin_approved_1_at: now
         }
       } else if (!request.admin_approved_2 && request.requires_three_approvals) {
+        // Second approval completes the process (changed from requiring 3)
         updateData = {
           admin_approved_2: true,
           admin_approved_2_by: currentUserEmail,
-          admin_approved_2_at: now
-        }
-      } else if (!request.admin_approved_3 && request.requires_three_approvals) {
-        updateData = {
-          admin_approved_3: true,
-          admin_approved_3_by: currentUserEmail,
-          admin_approved_3_at: now,
+          admin_approved_2_at: now,
           admin_approved: true,
           admin_approved_by: currentUserEmail,
           admin_approved_at: now
@@ -210,12 +206,12 @@ export const AdminWithdrawalApprovals = () => {
 
   const getApprovalStatus = (request: WithdrawalRequest) => {
     if (request.requires_three_approvals) {
+      // Changed to require 2 approvals instead of 3
       const approvals = [
         request.admin_approved_1,
-        request.admin_approved_2,
-        request.admin_approved_3
+        request.admin_approved_2
       ].filter(Boolean).length
-      return `${approvals}/3 Admin Approvals`
+      return `${approvals}/2 Admin Approvals`
     } else {
       return request.admin_approved_1 ? '1/1 Admin Approval' : '0/1 Admin Approval'
     }
@@ -301,11 +297,6 @@ export const AdminWithdrawalApprovals = () => {
                     {req.admin_approved_2 && (
                       <div className="text-xs text-gray-600">
                         <p>✓ Approved by: {req.admin_approved_2_by}</p>
-                      </div>
-                    )}
-                    {req.admin_approved_3 && (
-                      <div className="text-xs text-gray-600">
-                        <p>✓ Approved by: {req.admin_approved_3_by}</p>
                       </div>
                     )}
                   </div>

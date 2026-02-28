@@ -48,18 +48,34 @@ export const WithdrawalRequestsManager = () => {
 
   const fetchRequests = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch all pending withdrawal requests
+      const { data: allData, error } = await supabase
         .from('money_requests')
         .select('*')
         .eq('request_type', 'withdrawal')
         .eq('status', 'pending')
-        .eq('admin_approved', true)
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
+      // Filter for requests that have required admin approvals
+      // Support both old system (admin_approved = true) and new system (admin_approved_1 & admin_approved_2)
+      const filteredData = (allData || []).filter((req: any) => {
+        // Old system: single admin_approved flag
+        if (req.admin_approved === true) return true
+
+        // New system: Check if enough admin approvals based on amount
+        if (req.amount <= 100000) {
+          // Amounts <= 100K need 1 admin approval
+          return req.admin_approved_1 === true
+        } else {
+          // Amounts > 100K need 2 admin approvals (updated from 3)
+          return req.admin_approved_1 === true && req.admin_approved_2 === true
+        }
+      })
+
       const enrichedRequests = await Promise.all(
-        (data || []).map(async (req: any) => {
+        filteredData.map(async (req: any) => {
           const { data: empData } = await supabase
             .from('employees')
             .select('name')
