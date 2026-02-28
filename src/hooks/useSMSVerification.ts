@@ -32,7 +32,34 @@ export const useSMSVerification = () => {
 
       if (rpcError) throw rpcError
 
-      return data as VerificationCodeResponse
+      const codeData = data as VerificationCodeResponse
+
+      const { data: empData } = await supabase
+        .from('employees')
+        .select('name')
+        .eq('email', approverEmail)
+        .maybeSingle()
+
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-withdrawal-verification-sms`
+      const smsResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: approverPhone,
+          code: codeData.code,
+          approverName: empData?.name
+        }),
+      })
+
+      if (!smsResponse.ok) {
+        const errorData = await smsResponse.json()
+        console.error('Failed to send SMS:', errorData)
+        throw new Error('Failed to send SMS verification code')
+      }
+
+      return codeData
     } catch (err: any) {
       setError(err.message || 'Failed to send verification code')
       return null
