@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DollarSign, CheckCircle, TrendingUp, Tag, Bell, FileText, Lock } from 'lucide-react'
+import { DollarSign, CheckCircle, TrendingUp, Tag, Bell, FileText, Lock, Shield } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { CashSettings } from '../components/settings/CashSettings'
 import { ApprovalSettings } from '../components/settings/ApprovalSettings'
@@ -7,8 +7,9 @@ import { AdvanceSettings } from '../components/settings/AdvanceSettings'
 import { ExpenseSettings } from '../components/settings/ExpenseSettings'
 import { NotificationSettings } from '../components/settings/NotificationSettings'
 import { ReportSettings } from '../components/settings/ReportSettings'
+import { SecurityQuestionsSetup } from '../components/finance/SecurityQuestionsSetup'
 
-type SettingsTab = 'cash' | 'approvals' | 'advances' | 'expenses' | 'notifications' | 'reports'
+type SettingsTab = 'cash' | 'approvals' | 'advances' | 'expenses' | 'notifications' | 'reports' | 'security'
 
 export const Settings = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('cash')
@@ -40,10 +41,11 @@ export const Settings = () => {
   const tabs = [
     { id: 'cash' as SettingsTab, name: 'General & Cash', icon: DollarSign, color: 'text-green-600' },
     { id: 'approvals' as SettingsTab, name: 'Approvals & Workflow', icon: CheckCircle, color: 'text-blue-600' },
+    { id: 'security' as SettingsTab, name: 'Security & Verification', icon: Shield, color: 'text-red-600' },
     { id: 'advances' as SettingsTab, name: 'Advances', icon: TrendingUp, color: 'text-orange-600' },
     { id: 'expenses' as SettingsTab, name: 'Expenses & Categories', icon: Tag, color: 'text-purple-600' },
     { id: 'notifications' as SettingsTab, name: 'Notifications & SMS', icon: Bell, color: 'text-yellow-600' },
-    { id: 'reports' as SettingsTab, name: 'Reports & Periods', icon: FileText, color: 'text-indigo-600' }
+    { id: 'reports' as SettingsTab, name: 'Reports & Periods', icon: FileText, color: 'text-gray-600' }
   ]
 
   return (
@@ -79,6 +81,7 @@ export const Settings = () => {
         <div className="p-6">
           {activeTab === 'cash' && <CashSettings />}
           {activeTab === 'approvals' && <ApprovalSettings />}
+          {activeTab === 'security' && <SecurityQuestionsSetup />}
           {activeTab === 'advances' && <AdvanceSettings />}
           {activeTab === 'expenses' && <ExpenseSettings />}
           {activeTab === 'notifications' && <NotificationSettings />}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { formatCurrency, formatDate } from '../../lib/utils'
 import { CheckCircle, XCircle, Clock, AlertCircle, UserCheck } from 'lucide-react'
+import { WithdrawalVerificationModal } from './WithdrawalVerificationModal'
 
 interface WithdrawalRequest {
   id: string
@@ -35,6 +36,9 @@ export const AdminWithdrawalApprovals = () => {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
+  const [currentUserPhone, setCurrentUserPhone] = useState<string>('')
+  const [verificationModalOpen, setVerificationModalOpen] = useState(false)
+  const [pendingApproval, setPendingApproval] = useState<WithdrawalRequest | null>(null)
 
   useEffect(() => {
     fetchCurrentUser()
@@ -54,6 +58,16 @@ export const AdminWithdrawalApprovals = () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (user?.email) {
       setCurrentUserEmail(user.email)
+
+      const { data: empData } = await supabase
+        .from('employees')
+        .select('phone')
+        .eq('email', user.email)
+        .maybeSingle()
+
+      if (empData?.phone) {
+        setCurrentUserPhone(empData.phone)
+      }
     }
   }
 
@@ -125,9 +139,20 @@ export const AdminWithdrawalApprovals = () => {
       return
     }
 
+    if (request.requires_three_approvals) {
+      setPendingApproval(request)
+      setVerificationModalOpen(true)
+      return
+    }
+
     if (!confirm(`Approve ${formatCurrency(request.amount)} withdrawal for ${request.employee_name}?`)) {
       return
     }
+
+    await processApproval(request)
+  }
+
+  const processApproval = async (request: WithdrawalRequest) => {
 
     setProcessing(request.id)
     try {
@@ -341,6 +366,21 @@ export const AdminWithdrawalApprovals = () => {
             )
           })}
         </div>
+      )}
+
+      {pendingApproval && (
+        <WithdrawalVerificationModal
+          isOpen={verificationModalOpen}
+          onClose={() => {
+            setVerificationModalOpen(false)
+            setPendingApproval(null)
+          }}
+          onVerified={() => processApproval(pendingApproval)}
+          withdrawalRequestId={pendingApproval.id}
+          approverEmail={currentUserEmail}
+          approverPhone={currentUserPhone}
+          amount={pendingApproval.amount}
+        />
       )}
     </div>
   )
