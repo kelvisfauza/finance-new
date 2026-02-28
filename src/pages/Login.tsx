@@ -42,7 +42,9 @@ export const Login = () => {
       if (employeeError) throw employeeError
 
       if (!employeeData?.phone) {
-        throw new Error('Phone number not found. Please contact IT support.')
+        await signIn(authData.user, authData.session)
+        navigate('/dashboard')
+        return
       }
 
       setPendingUserId(authData.user.id)
