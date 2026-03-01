@@ -207,8 +207,26 @@ export const HRPayments = () => {
     try {
       setProcessingId(payment.id)
 
+      // Check if already finance approved to prevent duplicate processing
+      if (payment.finance_approved_at) {
+        alert('This payment has already been approved by finance')
+        return
+      }
+
       // Determine which table this payment came from
       const tableName = payment.user_id ? 'money_requests' : 'approval_requests'
+
+      // Check if cash transaction already exists to prevent duplicates
+      const { data: existingTransaction } = await supabase
+        .from('finance_cash_transactions')
+        .select('id')
+        .eq('reference', payment.id)
+        .maybeSingle()
+
+      if (existingTransaction) {
+        alert('This payment has already been processed')
+        return
+      }
 
       const { error: updateError } = await supabase
         .from(tableName)
