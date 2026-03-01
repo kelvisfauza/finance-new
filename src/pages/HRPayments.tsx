@@ -276,6 +276,11 @@ export const HRPayments = () => {
 
       if (cashError) {
         console.error('Cash transaction error details:', cashError)
+        if (cashError.message?.includes('finance_cash_transactions_reference_key') ||
+            cashError.message?.includes('ledger_entries_reference_key') ||
+            cashError.message?.includes('duplicate key')) {
+          throw new Error('This payment has already been processed. Please refresh the page.')
+        }
         throw new Error(`Failed to record cash transaction: ${cashError.message}`)
       }
 
