@@ -55,6 +55,9 @@ export const PendingCashDeposits = () => {
     try {
       setProcessing(deposit.id)
 
+      // Optimistically remove from UI to prevent double-confirmation
+      setDeposits(prev => prev.filter(d => d.id !== deposit.id))
+
       const { data: existingDeposit, error: fetchError } = await supabase
         .from('finance_cash_transactions')
         .select('status')
@@ -117,6 +120,8 @@ export const PendingCashDeposits = () => {
     } catch (error: any) {
       console.error('Error confirming deposit:', error)
       alert(`Failed to confirm deposit: ${error.message}`)
+      // Restore the list on error
+      fetchPendingDeposits()
     } finally {
       setProcessing(null)
     }

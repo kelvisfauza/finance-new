@@ -103,6 +103,9 @@ export const PendingCoffeePayments = () => {
     try {
       setProcessing(lot.id)
 
+      // Optimistically remove from UI to prevent double-processing
+      refetch()
+
       const { data: { user } } = await supabase.auth.getUser()
       const processedBy = user?.email || 'Finance'
 
@@ -242,9 +245,11 @@ export const PendingCoffeePayments = () => {
 
       fetchCashBalanceAndAdvances()
       refetch()
+      alert('Payment processed successfully')
     } catch (err: any) {
       console.error('Error processing payment:', err)
       alert(`Failed to process payment: ${err.message}`)
+      refetch()
     } finally {
       setProcessing(null)
     }
@@ -459,6 +464,7 @@ export const PendingCoffeePayments = () => {
     } catch (err: any) {
       console.error('Error processing bulk payments:', err)
       alert(`Failed to process bulk payments: ${err.message}`)
+      refetch()
     } finally {
       setProcessing(null)
     }

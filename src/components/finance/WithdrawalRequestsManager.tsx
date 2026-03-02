@@ -182,6 +182,10 @@ Payment Method: ${request.payment_channel}`
     }
 
     setProcessing(request.id)
+
+    // Optimistically remove from UI to prevent double-approval
+    setRequests(prev => prev.filter(r => r.id !== request.id))
+
     try {
       const now = new Date().toISOString()
 
@@ -215,6 +219,8 @@ Payment Method: ${request.payment_channel}`
     } catch (error: any) {
       console.error('Error approving request:', error)
       alert(`Failed to approve: ${error.message}`)
+      // Restore the list on error
+      fetchRequests()
     } finally {
       setProcessing(null)
     }
@@ -234,6 +240,13 @@ Payment Method: ${request.payment_channel}`
     if (!rejectingId) return
 
     setProcessing(rejectingId)
+
+    // Optimistically remove from UI
+    const rejectingRequest = requests.find(r => r.id === rejectingId)
+    if (rejectingRequest) {
+      setRequests(prev => prev.filter(r => r.id !== rejectingId))
+    }
+
     try {
       const { error } = await supabase
         .from('withdrawal_requests')
@@ -254,6 +267,8 @@ Payment Method: ${request.payment_channel}`
     } catch (error: any) {
       console.error('Error rejecting request:', error)
       alert(`Failed to reject: ${error.message}`)
+      // Restore the list on error
+      fetchRequests()
     } finally {
       setProcessing(null)
     }

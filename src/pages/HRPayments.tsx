@@ -207,9 +207,15 @@ export const HRPayments = () => {
     try {
       setProcessingId(payment.id)
 
+      // Optimistically remove from UI immediately
+      setPayments(prev => prev.filter(p => p.id !== payment.id))
+      setFilteredPayments(prev => prev.filter(p => p.id !== payment.id))
+
       // Check if already finance approved to prevent duplicate processing
       if (payment.finance_approved_at) {
         alert('This payment has already been approved by finance')
+        setProcessingId(null)
+        await fetchPayments()
         return
       }
 
@@ -318,6 +324,8 @@ export const HRPayments = () => {
     } catch (error: any) {
       console.error('Error approving payment:', error)
       alert(`Failed to approve payment request: ${error.message || 'Unknown error'}`)
+      // Restore the list on error
+      await fetchPayments()
     } finally {
       setProcessingId(null)
     }
@@ -331,6 +339,10 @@ export const HRPayments = () => {
 
     try {
       setProcessingId(payment.id)
+
+      // Optimistically remove from UI immediately
+      setPayments(prev => prev.filter(p => p.id !== payment.id))
+      setFilteredPayments(prev => prev.filter(p => p.id !== payment.id))
 
       // Determine which table this payment came from
       const tableName = payment.user_id ? 'money_requests' : 'approval_requests'
@@ -366,6 +378,8 @@ export const HRPayments = () => {
     } catch (error: any) {
       console.error('Error rejecting payment:', error)
       alert('Failed to reject payment request')
+      // Restore the list on error
+      await fetchPayments()
     } finally {
       setProcessingId(null)
     }

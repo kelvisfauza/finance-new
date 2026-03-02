@@ -153,8 +153,11 @@ export const AdminWithdrawalApprovals = () => {
   }
 
   const processApproval = async (request: WithdrawalRequest) => {
-
     setProcessing(request.id)
+
+    // Optimistically remove from UI to prevent double-approval
+    setRequests(prev => prev.filter(r => r.id !== request.id))
+
     try {
       const now = new Date().toISOString()
       let updateData: any = {}
@@ -188,6 +191,8 @@ export const AdminWithdrawalApprovals = () => {
     } catch (error: any) {
       console.error('Error approving request:', error)
       alert(`Failed to approve: ${error.message}`)
+      // Restore the list on error
+      fetchRequests()
     } finally {
       setProcessing(null)
     }
