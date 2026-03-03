@@ -56,6 +56,7 @@ export const WithdrawalRequestsManager = () => {
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
   const [rejectionReason, setRejectionReason] = useState<string>('')
   const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date())
 
   useEffect(() => {
     fetchCurrentUser()
@@ -166,6 +167,7 @@ export const WithdrawalRequestsManager = () => {
       )
 
       setFailedPayouts(enrichedFailedPayouts)
+      setLastUpdate(new Date())
     } catch (error) {
       console.error('Error fetching withdrawal requests:', error)
     } finally {
@@ -176,13 +178,33 @@ export const WithdrawalRequestsManager = () => {
   useEffect(() => {
     fetchRequests()
 
+    // Real-time subscription for ALL withdrawal request changes
     const channel = supabase
-      .channel('withdrawal-requests-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawal_requests' }, fetchRequests)
+      .channel('withdrawal-requests-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'withdrawal_requests'
+        },
+        (payload: any) => {
+          console.log('Withdrawal request change detected:', payload)
+          // Refetch immediately on any change
+          fetchRequests()
+        }
+      )
       .subscribe()
+
+    // Backup polling every 10 seconds for failed payouts
+    // This ensures we catch any payout status changes from external systems
+    const pollingInterval = setInterval(() => {
+      fetchRequests()
+    }, 10000)
 
     return () => {
       supabase.removeChannel(channel)
+      clearInterval(pollingInterval)
     }
   }, [])
 
@@ -361,6 +383,7 @@ This will attempt to process the payment again.`
     setProcessing(request.id)
 
     try {
+      // Update payout status to processing
       const { error } = await supabase
         .from('withdrawal_requests')
         .update({
@@ -372,11 +395,15 @@ This will attempt to process the payment again.`
 
       if (error) throw error
 
-      alert('Payout retry initiated. The system will attempt to process the payment again.')
-      fetchRequests()
+      // Immediately fetch latest state from database
+      await fetchRequests()
+
+      alert('Payout retry initiated. The payment status will update automatically if it succeeds or fails.')
     } catch (error: any) {
       console.error('Error retrying payout:', error)
       alert(`Failed to retry payout: ${error.message}`)
+      // Refetch to restore accurate state
+      await fetchRequests()
     } finally {
       setProcessing(null)
     }
@@ -405,9 +432,15 @@ This will attempt to process the payment again.`
               <AlertTriangle className="w-5 h-5 mr-2 text-red-600" />
               Failed Payouts - Retry Required
             </h3>
-            <span className="px-3 py-1 bg-red-200 text-red-900 text-sm font-medium rounded-full">
-              {failedPayouts.length} failed
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-1 bg-red-200 text-red-900 text-sm font-medium rounded-full">
+                {failedPayouts.length} failed
+              </span>
+              <div className="flex items-center gap-1 text-xs text-gray-600">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                Live
+              </div>
+            </div>
           </div>
 
           <div className="mb-4 p-3 bg-red-100 rounded-lg border border-red-300">

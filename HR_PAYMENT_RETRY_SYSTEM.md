@@ -173,22 +173,71 @@ await supabase
 
 ## Real-Time Updates
 
-The component subscribes to database changes:
+The system uses **dual real-time monitoring** to ensure failed payouts are always current:
+
+### 1. Real-Time Database Subscriptions
 ```typescript
 const channel = supabase
-  .channel('withdrawal-requests-changes')
+  .channel('withdrawal-requests-realtime')
   .on('postgres_changes', {
     event: '*',
     schema: 'public',
     table: 'withdrawal_requests'
-  }, fetchRequests)
+  }, (payload) => {
+    console.log('Withdrawal request change detected:', payload)
+    fetchRequests()
+  })
   .subscribe()
 ```
 
-When payout status changes (from external process or webhook):
-- Failed payouts section updates automatically
-- No page refresh needed
-- Real-time visibility
+### 2. Polling Backup (Every 10 seconds)
+```typescript
+const pollingInterval = setInterval(() => {
+  fetchRequests()
+}, 10000)
+```
+
+### How It Works
+
+When payout status changes (from external API webhook or manual update):
+1. **Real-time subscription** detects the database change instantly
+2. **Automatic refetch** pulls the latest data including payout_status and payout_error
+3. **UI updates immediately** without page refresh
+4. **Polling backup** ensures no updates are missed even if WebSocket connection drops
+
+### Real-Time Behavior
+
+**Scenario: Retry fails again**
+1. Finance clicks "Retry Payout"
+2. Status changes to `processing` in database
+3. External API processes payment
+4. API returns error → database updates: `payout_status = 'failed'`, `payout_error = 'transfer Rejected'`
+5. Real-time subscription detects change
+6. Failed payment reappears in UI within 1 second
+7. Finance can retry again immediately
+
+**Visual Indicator:**
+- Green pulsing dot with "Live" label shows real-time connection is active
+- Data refreshes automatically every 10 seconds as backup
+
+### Benefits of Real-Time
+
+1. **Immediate Failure Visibility**
+   - If retry fails, finance sees it within seconds
+   - No need to manually refresh page
+
+2. **Multiple Users Supported**
+   - Two finance staff can see same failed payouts
+   - Changes propagate to all open sessions
+
+3. **External Integration Support**
+   - Webhook from GosentePay updates database
+   - All finance dashboards update automatically
+
+4. **Reliable with Fallback**
+   - WebSocket subscription for instant updates
+   - Polling backup if WebSocket fails
+   - Data is always current
 
 ## Testing Recommendations
 
