@@ -367,6 +367,76 @@ Payment Method: ${request.payment_channel}`
     printWindow.document.close()
   }
 
+  const handlePayCashInstead = async (request: WithdrawalRequest) => {
+    const confirmMsg = `Convert to Cash Payment?
+
+Employee: ${request.employee_name}
+Amount: ${formatCurrency(request.amount)}
+Original Method: ${request.disbursement_method}
+${request.disbursement_method === 'MOBILE_MONEY' ? `Phone: ${request.disbursement_phone}\n` : ''}
+Original Error: ${request.payout_error || 'Unknown error'}
+
+This will:
+- Mark the withdrawal as approved and paid
+- Change payment method to CASH
+- Deduct ${formatCurrency(request.amount)} from cash balance
+- Create a transaction record showing cash payment
+
+You will need to physically pay ${formatCurrency(request.amount)} in cash to ${request.employee_name}.
+
+Continue?`
+
+    if (!confirm(confirmMsg)) {
+      return
+    }
+
+    setProcessing(request.id)
+
+    try {
+      // Update withdrawal request: change to CASH, mark as paid, clear errors
+      const { error: updateError } = await supabase
+        .from('withdrawal_requests')
+        .update({
+          disbursement_method: 'CASH',
+          payout_status: 'paid',
+          payout_error: null,
+          paid_at: new Date().toISOString(),
+          payout_attempted_at: new Date().toISOString(),
+          payout_reference: `CASH-FALLBACK-${Date.now()}`
+        })
+        .eq('id', request.id)
+
+      if (updateError) throw updateError
+
+      // Create cash transaction record
+      const { error: transactionError } = await supabase
+        .from('finance_cash_transactions')
+        .insert({
+          type: 'withdrawal',
+          amount: request.amount,
+          description: `Cash payment (API fallback) - ${request.reason}`,
+          reference_type: 'withdrawal_request',
+          reference_id: request.id,
+          created_by: currentUserEmail,
+          transaction_date: new Date().toISOString()
+        })
+
+      if (transactionError) throw transactionError
+
+      alert(`Successfully converted to cash payment!\n\nPlease pay ${formatCurrency(request.amount)} in cash to ${request.employee_name}.`)
+
+      // Immediately fetch latest state from database
+      await fetchRequests()
+    } catch (error: any) {
+      console.error('Error converting to cash payment:', error)
+      alert(`Failed to convert to cash payment: ${error.message}`)
+      // Refetch to restore accurate state
+      await fetchRequests()
+    } finally {
+      setProcessing(null)
+    }
+  }
+
   const handleRetryPayout = async (request: WithdrawalRequest) => {
     const confirmMsg = `Retry payout of ${formatCurrency(request.amount)} to ${request.employee_name}?
 
@@ -530,6 +600,15 @@ This will attempt to process the payment again.`
                   >
                     <RefreshCw className="w-4 h-4 mr-1" />
                     {processing === req.id ? 'Retrying...' : 'Retry Payout'}
+                  </button>
+
+                  <button
+                    onClick={() => handlePayCashInstead(req)}
+                    disabled={processing === req.id}
+                    className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center"
+                  >
+                    <Banknote className="w-4 h-4 mr-1" />
+                    Pay Cash Instead
                   </button>
                 </div>
               </div>

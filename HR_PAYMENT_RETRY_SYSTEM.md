@@ -1,7 +1,9 @@
 # HR Payment Retry System
 
 ## Overview
-The HR Payments page now includes a comprehensive retry mechanism for failed mobile money payouts. When the GosentePay API fails to process a withdrawal, the system displays the failed payment with a retry button.
+The HR Payments page now includes a comprehensive retry mechanism for failed mobile money payouts. When the GosentePay API fails to process a withdrawal, the system displays the failed payment with two options:
+1. **Retry Payout** - Attempts to process the payment through the API again
+2. **Pay Cash Instead** - Converts the payment to cash if API continues to fail
 
 ## Implementation Date
 March 3, 2026
@@ -38,12 +40,25 @@ The `withdrawal_requests` table tracks payout lifecycle using these columns:
    - `payout_error` = 'transfer Rejected' (or other error)
    - Payment appears in "Failed Payouts" section
 
-4. **Retry**
+4. **Retry Options**
+
+   **Option A: Retry Payout**
    - Finance clicks "Retry Payout" button
    - `payout_status` = 'processing'
    - `payout_error` = null
    - `payout_attempted_at` = current timestamp
    - System attempts to process payment again
+   - If fails again, returns to step 3
+
+   **Option B: Pay Cash Instead**
+   - Finance clicks "Pay Cash Instead" button
+   - `disbursement_method` changes to 'CASH'
+   - `payout_status` = 'paid'
+   - `payout_error` = null (cleared)
+   - `paid_at` = current timestamp
+   - Cash transaction record created
+   - Cash balance deducted
+   - Finance physically pays employee in cash
 
 ## UI Components
 
@@ -239,6 +254,152 @@ When payout status changes (from external API webhook or manual update):
    - Polling backup if WebSocket fails
    - Data is always current
 
+## Cash Fallback Option
+
+When API retries continue to fail, finance staff can convert the payment to cash.
+
+### "Pay Cash Instead" Button
+
+Located next to "Retry Payout" on failed payments.
+
+**What It Does:**
+1. Changes `disbursement_method` from MOBILE_MONEY/BANK → CASH
+2. Marks `payout_status` as 'paid'
+3. Sets `paid_at` timestamp
+4. Creates cash transaction record in `finance_cash_transactions`
+5. Generates payout reference: `CASH-FALLBACK-{timestamp}`
+6. Deducts from cash balance (via existing trigger)
+
+**Confirmation Dialog:**
+```
+Convert to Cash Payment?
+
+Employee: John Masereka
+Amount: UGX 40,000
+Original Method: MOBILE_MONEY
+Phone: 0754121793
+Original Error: transfer Rejected
+
+This will:
+- Mark the withdrawal as approved and paid
+- Change payment method to CASH
+- Deduct UGX 40,000 from cash balance
+- Create a transaction record showing cash payment
+
+You will need to physically pay UGX 40,000 in cash to John Masereka.
+
+Continue?
+```
+
+### Database Changes
+
+**withdrawal_requests table:**
+```sql
+UPDATE withdrawal_requests SET
+  disbursement_method = 'CASH',
+  payout_status = 'paid',
+  payout_error = NULL,
+  paid_at = now(),
+  payout_attempted_at = now(),
+  payout_reference = 'CASH-FALLBACK-1234567890'
+WHERE id = '{request_id}'
+```
+
+**finance_cash_transactions table:**
+```sql
+INSERT INTO finance_cash_transactions (
+  type,
+  amount,
+  description,
+  reference_type,
+  reference_id,
+  created_by,
+  transaction_date
+) VALUES (
+  'withdrawal',
+  40000,
+  'Cash payment (API fallback) - Wallet Withdrawal',
+  'withdrawal_request',
+  '{request_id}',
+  'finance@gpcf.com',
+  now()
+)
+```
+
+### When to Use Cash Fallback
+
+**Good Scenarios:**
+- API has been down for extended period
+- Specific phone number is blacklisted by provider
+- Bank account has issues
+- Employee needs urgent payment
+- After 3+ failed retry attempts
+
+**Bad Scenarios:**
+- First failure (always retry at least once)
+- Large amounts without proper authorization
+- When cash balance is insufficient
+
+### Audit Trail
+
+The cash fallback creates a complete audit trail:
+
+1. **Original Request**
+   - Original `disbursement_method` preserved in history
+   - `payout_error` shows why API failed
+   - All timestamps preserved
+
+2. **Conversion Record**
+   - `payout_reference` shows "CASH-FALLBACK"
+   - `paid_at` timestamp when converted
+   - `created_by` shows who approved cash payment
+
+3. **Cash Transaction**
+   - Full transaction in `finance_cash_transactions`
+   - Links to withdrawal request via `reference_id`
+   - Description shows "API fallback"
+
+4. **Balance Impact**
+   - Cash balance automatically reduced
+   - Ledger entry created by trigger
+   - User's wallet already deducted (happened at approval)
+
+### Security
+
+**Permissions Required:**
+- Finance role
+- Cannot convert own withdrawal request
+- Must have sufficient cash balance
+
+**Validations:**
+- Confirmation dialog requires explicit approval
+- Transaction is atomic (withdrawal + cash transaction)
+- If either fails, entire operation rolls back
+- Real-time update triggers immediately
+
+### User Experience Flow
+
+1. **Finance sees failed payout**
+   - Red alert box at top
+   - Shows error message
+   - Two buttons: "Retry Payout" | "Pay Cash Instead"
+
+2. **Finance chooses cash fallback**
+   - Clicks "Pay Cash Instead"
+   - Reviews confirmation dialog
+   - Confirms payment method change
+
+3. **System processes conversion**
+   - Updates withdrawal status
+   - Creates cash transaction
+   - Updates cash balance
+   - Real-time sync removes from failed list
+
+4. **Finance completes payment**
+   - Physically pays employee in cash
+   - Transaction already recorded
+   - Audit trail complete
+
 ## Testing Recommendations
 
 ### Test Cases
@@ -261,10 +422,22 @@ When payout status changes (from external API webhook or manual update):
    - Verify payment remains in failed list
    - Verify new error message is displayed
 
-4. **Real-Time Updates**
+4. **Cash Fallback**
+   - Click "Pay Cash Instead" on failed payment
+   - Verify confirmation dialog shows correct details
+   - Confirm action
+   - Verify disbursement_method changes to CASH
+   - Verify payout_status changes to 'paid'
+   - Verify cash transaction is created
+   - Verify payment disappears from failed list
+   - Check that cash balance is reduced
+
+5. **Real-Time Updates**
    - Have two browser windows open
    - Retry payment in one window
    - Verify other window updates automatically
+   - Test cash fallback in one window
+   - Verify other window updates immediately
 
 ## Security Notes
 
