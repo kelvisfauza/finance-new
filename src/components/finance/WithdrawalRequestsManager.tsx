@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { Phone, Banknote, CheckCircle, XCircle, Printer, Clock, Building, AlertCircle, Wallet } from 'lucide-react'
+import { Phone, Banknote, CheckCircle, XCircle, Printer, Clock, Building, AlertCircle, Wallet, RefreshCw, AlertTriangle } from 'lucide-react'
 
 interface Approver {
   email: string
@@ -36,6 +36,10 @@ interface WithdrawalRequest {
   admin_approved_1_by: string | null
   admin_approved_2_by: string | null
   wallet_balance_verified: boolean
+  payout_status?: string | null
+  payout_error?: string | null
+  payout_ref?: string | null
+  payout_attempted_at?: string | null
   employee_name?: string
   employee_position?: string
   wallet_balance?: number
@@ -46,6 +50,7 @@ interface WithdrawalRequest {
 
 export const WithdrawalRequestsManager = () => {
   const [requests, setRequests] = useState<WithdrawalRequest[]>([])
+  const [failedPayouts, setFailedPayouts] = useState<WithdrawalRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState<string | null>(null)
   const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
@@ -72,6 +77,15 @@ export const WithdrawalRequestsManager = () => {
         .order('created_at', { ascending: false })
 
       if (error) throw error
+
+      const { data: failedData, error: failedError } = await supabase
+        .from('withdrawal_requests')
+        .select('*')
+        .eq('status', 'approved')
+        .in('payout_status', ['failed', 'processing'])
+        .order('payout_attempted_at', { ascending: false })
+
+      if (failedError) throw failedError
 
       const enrichedRequests = await Promise.all(
         (allData || []).map(async (req: any) => {
@@ -131,6 +145,27 @@ export const WithdrawalRequestsManager = () => {
       )
 
       setRequests(enrichedRequests)
+
+      const enrichedFailedPayouts = await Promise.all(
+        (failedData || []).map(async (req: any) => {
+          const { data: empData } = await supabase
+            .from('employees')
+            .select('name, position')
+            .eq('email', req.requester_email)
+            .maybeSingle()
+
+          return {
+            ...req,
+            requested_by: req.requester_email,
+            reason: 'Wallet Withdrawal',
+            payment_channel: req.disbursement_method || 'MOBILE_MONEY',
+            employee_name: req.requester_name || empData?.name || req.requester_email,
+            employee_position: empData?.position
+          }
+        })
+      )
+
+      setFailedPayouts(enrichedFailedPayouts)
     } catch (error) {
       console.error('Error fetching withdrawal requests:', error)
     } finally {
@@ -310,6 +345,43 @@ Payment Method: ${request.payment_channel}`
     printWindow.document.close()
   }
 
+  const handleRetryPayout = async (request: WithdrawalRequest) => {
+    const confirmMsg = `Retry payout of ${formatCurrency(request.amount)} to ${request.employee_name}?
+
+Payment Method: ${request.disbursement_method}
+${request.disbursement_method === 'MOBILE_MONEY' ? `Phone: ${request.disbursement_phone}` : ''}
+Previous Error: ${request.payout_error || 'Unknown error'}
+
+This will attempt to process the payment again.`
+
+    if (!confirm(confirmMsg)) {
+      return
+    }
+
+    setProcessing(request.id)
+
+    try {
+      const { error } = await supabase
+        .from('withdrawal_requests')
+        .update({
+          payout_status: 'processing',
+          payout_error: null,
+          payout_attempted_at: new Date().toISOString()
+        })
+        .eq('id', request.id)
+
+      if (error) throw error
+
+      alert('Payout retry initiated. The system will attempt to process the payment again.')
+      fetchRequests()
+    } catch (error: any) {
+      console.error('Error retrying payout:', error)
+      alert(`Failed to retry payout: ${error.message}`)
+    } finally {
+      setProcessing(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -326,6 +398,113 @@ Payment Method: ${request.payment_channel}`
 
   return (
     <>
+      {failedPayouts.length > 0 && (
+        <div className="bg-red-50 rounded-xl shadow-sm border border-red-300 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-red-900 flex items-center">
+              <AlertTriangle className="w-5 h-5 mr-2 text-red-600" />
+              Failed Payouts - Retry Required
+            </h3>
+            <span className="px-3 py-1 bg-red-200 text-red-900 text-sm font-medium rounded-full">
+              {failedPayouts.length} failed
+            </span>
+          </div>
+
+          <div className="mb-4 p-3 bg-red-100 rounded-lg border border-red-300">
+            <p className="text-sm text-red-900">
+              <strong>Action Required:</strong> The following payments failed due to API errors. Click "Retry Payout" to attempt processing again.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {failedPayouts.map((req) => (
+              <div
+                key={req.id}
+                className="border border-red-300 rounded-lg p-4 bg-white"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-medium text-gray-900">{req.employee_name}</p>
+                      {req.employee_position && (
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded">
+                          {req.employee_position}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(req.amount)}</p>
+                    <p className="text-sm text-gray-600 mt-1">{req.reason}</p>
+
+                    <div className="mt-2 p-2 bg-red-100 rounded border border-red-200">
+                      <p className="text-xs text-red-900">
+                        <strong>Error:</strong> {req.payout_error || 'Unknown error'}
+                      </p>
+                      {req.payout_attempted_at && (
+                        <p className="text-xs text-red-700 mt-1">
+                          Last Attempt: {formatDate(req.payout_attempted_at)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    {req.disbursement_method === 'MOBILE_MONEY' && (
+                      <div className="mb-2">
+                        <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full flex items-center justify-end">
+                          <Phone className="w-3 h-3 mr-1" />
+                          Mobile Money
+                        </span>
+                        <p className="text-xs text-gray-600 mt-1">{req.disbursement_phone || req.phone_number}</p>
+                      </div>
+                    )}
+                    {req.disbursement_method === 'CASH' && (
+                      <span className="px-3 py-1 bg-gray-100 text-gray-800 text-sm font-medium rounded-full flex items-center">
+                        <Banknote className="w-3 h-3 mr-1" />
+                        Cash
+                      </span>
+                    )}
+                    {req.disbursement_method === 'BANK' && (
+                      <div className="mb-2">
+                        <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full flex items-center justify-end">
+                          <Building className="w-3 h-3 mr-1" />
+                          Bank Transfer
+                        </span>
+                        <div className="text-xs text-gray-600 mt-1 text-left">
+                          <p><strong>Bank:</strong> {req.disbursement_bank_name}</p>
+                          <p><strong>A/C:</strong> {req.disbursement_account_number}</p>
+                          <p><strong>Name:</strong> {req.disbursement_account_name}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-2">
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        req.payout_status === 'failed'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {req.payout_status === 'failed' ? 'Failed' : 'Processing'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-3 border-t border-red-200">
+                  <button
+                    onClick={() => handleRetryPayout(req)}
+                    disabled={processing === req.id}
+                    className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-1" />
+                    {processing === req.id ? 'Retrying...' : 'Retry Payout'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
