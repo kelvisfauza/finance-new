@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate, exportToCSV } from '../lib/utils'
-import { Users, Download, Search, CheckCircle, Clock, Check, X, Printer } from 'lucide-react'
+import { Users, Download, Search, CircleCheck as CheckCircle, Clock, Check, X, Printer } from 'lucide-react'
 import { PermissionGate } from '../components/PermissionGate'
 import { useSMSNotifications } from '../hooks/useSMSNotifications'
 import { useAuth } from '../contexts/AuthContext'
