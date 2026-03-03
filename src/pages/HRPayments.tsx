@@ -48,7 +48,7 @@ export const HRPayments = () => {
   const [printingPayment, setPrintingPayment] = useState<SalaryPayment | null>(null)
   const [employeeDetails, setEmployeeDetails] = useState<any>(null)
 
-  const { sendApprovalResponseSMS } = useSMSNotifications()
+  const { sendApprovalResponseSMS, sendFinanceApprovalCompleteSMS } = useSMSNotifications()
   const { user, employee } = useAuth()
 
   const isFinanceRole = employee?.role?.toLowerCase().includes('finance') ||
@@ -309,13 +309,12 @@ export const HRPayments = () => {
       const employeePhone = payment.employee_phone
 
       if (employeePhone) {
-        await sendApprovalResponseSMS(
+        await sendFinanceApprovalCompleteSMS(
           employeeName,
           employeePhone,
           payment.amount,
-          'approved',
-          user?.email || 'Finance',
-          payment.request_type
+          payment.request_type,
+          'CASH'
         )
       }
 

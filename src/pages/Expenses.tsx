@@ -7,6 +7,7 @@ import { PermissionGate } from '../components/PermissionGate'
 import { useAuth } from '../contexts/AuthContext'
 import { useEmployeesByEmail } from '../hooks/useEmployeesByEmail'
 import { useFinanceNotifications } from '../hooks/useFinanceNotifications'
+import { useSMSNotifications } from '../hooks/useSMSNotifications'
 
 interface Expense {
   id: string
@@ -35,6 +36,7 @@ interface Expense {
 export const Expenses = () => {
   const { employee } = useAuth()
   const { createNotification } = useFinanceNotifications()
+  const { sendFinanceApprovalCompleteSMS } = useSMSNotifications()
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
@@ -243,6 +245,18 @@ export const Expenses = () => {
             }
           }
         )
+
+        // Send SMS notification
+        const requester = getEmployee(selectedExpense.requestedby)
+        if (requester?.phone) {
+          await sendFinanceApprovalCompleteSMS(
+            requester.name || selectedExpense.requestedby,
+            requester.phone,
+            selectedExpense.amount,
+            selectedExpense.type,
+            'CASH'
+          )
+        }
 
         fetchExpenses()
       } else if (actionType === 'admin-approve') {

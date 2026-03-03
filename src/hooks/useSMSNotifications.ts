@@ -115,12 +115,31 @@ export const useSMSNotifications = () => {
     return sendSMS(approverPhone, message)
   }
 
+  const sendFinanceApprovalCompleteSMS = async (
+    recipientName: string,
+    recipientPhone: string,
+    amount: number,
+    requestType: string,
+    paymentMode: string
+  ) => {
+    const formattedAmount = new Intl.NumberFormat('en-UG', {
+      style: 'currency',
+      currency: 'UGX',
+      minimumFractionDigits: 0
+    }).format(amount)
+
+    const message = `Dear ${recipientName}, your ${requestType} request for ${formattedAmount} has been fully approved by Finance. Payment Mode: ${paymentMode}. Funds will be processed shortly.`
+
+    return sendSMS(recipientPhone, message)
+  }
+
   return {
     sendSMS,
     sendApprovalRequestSMS,
     sendApprovalResponseSMS,
     sendSalaryApprovalSMS,
     sendSalaryInitializedSMS,
-    sendFieldFinancingApprovalSMS
+    sendFieldFinancingApprovalSMS,
+    sendFinanceApprovalCompleteSMS
   }
 }

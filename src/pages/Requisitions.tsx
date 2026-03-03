@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useEmployeesByEmail } from '../hooks/useEmployeesByEmail'
 import { useFinanceNotifications } from '../hooks/useFinanceNotifications'
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'
+import { useSMSNotifications } from '../hooks/useSMSNotifications'
 
 interface Requisition {
   id: string
@@ -36,6 +37,7 @@ interface Requisition {
 export const Requisitions = () => {
   const { employee } = useAuth()
   const { createNotification } = useFinanceNotifications()
+  const { sendFinanceApprovalCompleteSMS } = useSMSNotifications()
   const [requisitions, setRequisitions] = useState<Requisition[]>([])
   const [filteredRequisitions, setFilteredRequisitions] = useState<Requisition[]>([])
   const [loading, setLoading] = useState(true)
@@ -240,6 +242,18 @@ export const Requisitions = () => {
             }
           }
         )
+
+        // Send SMS notification
+        const requester = getEmployee(selectedRequisition.requestedby)
+        if (requester?.phone) {
+          await sendFinanceApprovalCompleteSMS(
+            requester.name || selectedRequisition.requestedby,
+            requester.phone,
+            selectedRequisition.amount,
+            selectedRequisition.type,
+            'CASH'
+          )
+        }
 
         fetchRequisitions()
       } else if (actionType === 'admin-approve') {
