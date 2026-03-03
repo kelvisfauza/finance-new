@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { Phone, Banknote, CheckCircle, XCircle, Printer, Clock, Building, AlertCircle, Wallet, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Phone, Banknote, CircleCheck as CheckCircle, Circle as XCircle, Printer, Clock, Building, CircleAlert as AlertCircle, Wallet, RefreshCw, TriangleAlert as AlertTriangle } from 'lucide-react'
 
 interface Approver {
   email: string
