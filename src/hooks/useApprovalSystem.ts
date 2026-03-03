@@ -40,15 +40,28 @@ export const useApprovalSystem = () => {
 
       const { data: employees, error: employeesError } = await supabase
         .from('employees')
-        .select('id, name, phone, role')
-        .in('role', ['Administrator', 'Super Admin'])
-        .eq('is_active', true)
+        .select('id, name, phone, role, permissions')
         .not('phone', 'is', null)
 
       if (employeesError) {
         console.error('Error fetching approvers:', employeesError)
       } else if (employees && employees.length > 0) {
-        for (const approver of employees) {
+        const approvers = employees.filter((emp: any) => {
+          const isAdmin = ['Administrator', 'Super Admin', 'Manager'].includes(emp.role)
+          const hasFinanceApproval = emp.permissions?.some((p: string) =>
+            p.includes('Finance:approve') ||
+            p.includes('Finance:process') ||
+            p === 'Finance'
+          )
+          const hasApprovalPerm = emp.permissions?.some((p: string) =>
+            p.includes('approve') ||
+            p.includes('Approval')
+          )
+
+          return isAdmin || hasFinanceApproval || hasApprovalPerm
+        })
+
+        for (const approver of approvers) {
           await createApprovalNotification(
             approver.id,
             request.requested_by_name,
