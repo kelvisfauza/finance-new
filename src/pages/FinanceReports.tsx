@@ -8,10 +8,11 @@ import { RequisitionsTab } from '../components/reports/RequisitionsTab'
 import { DailyStatementTab } from '../components/reports/DailyStatementTab'
 import { IncomeStatementTab } from '../components/reports/IncomeStatementTab'
 import { BalanceSheetTab } from '../components/reports/BalanceSheetTab'
+import { WithdrawalsTab } from '../components/reports/WithdrawalsTab'
 import { useFinanceReports } from '../hooks/useFinanceReports'
 import { supabase } from '../lib/supabaseClient'
 
-type TabType = 'overview' | 'expenses' | 'hr-salary' | 'requisitions' | 'daily-statement' | 'income-statement' | 'balance-sheet'
+type TabType = 'overview' | 'expenses' | 'hr-salary' | 'requisitions' | 'daily-statement' | 'income-statement' | 'balance-sheet' | 'withdrawals'
 
 export const FinanceReports = () => {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
@@ -54,7 +55,8 @@ export const FinanceReports = () => {
     { id: 'balance-sheet', label: 'Balance Sheet' },
     { id: 'expenses', label: 'Expenses' },
     { id: 'hr-salary', label: 'HR / Salary' },
-    { id: 'requisitions', label: 'Requisitions' }
+    { id: 'requisitions', label: 'Requisitions' },
+    { id: 'withdrawals', label: 'Withdrawals' }
   ]
 
   return (
@@ -104,6 +106,7 @@ export const FinanceReports = () => {
           {activeTab === 'expenses' && <ExpensesTab filters={filters} />}
           {activeTab === 'hr-salary' && <HRSalaryTab filters={filters} />}
           {activeTab === 'requisitions' && <RequisitionsTab filters={filters} />}
+          {activeTab === 'withdrawals' && <WithdrawalsTab filters={filters} />}
         </div>
       </div>
     </div>
