@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BarChart3 } from 'lucide-react'
+import { ChartBar as BarChart3 } from 'lucide-react'
 import { ReportFilters, ReportFiltersComponent } from '../components/reports/ReportFilters'
 import { OverviewTab } from '../components/reports/OverviewTab'
 import { ExpensesTab } from '../components/reports/ExpensesTab'
