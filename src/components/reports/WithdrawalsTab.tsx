@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { ReportFilters } from './ReportFilters'
 import { formatCurrency } from '../../lib/utils'
 import { format } from 'date-fns'
-import { Banknote, TrendingUp, Printer, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { Banknote, TrendingUp, Printer, CircleCheck as CheckCircle, Circle as XCircle, Clock } from 'lucide-react'
 
 interface WithdrawalRecord {
   id: string
