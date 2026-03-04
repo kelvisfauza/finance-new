@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react'
-import { FileText, Users, TrendingUp, Scale } from 'lucide-react'
+import { FileText, Users, TrendingUp, Scale, Banknote } from 'lucide-react'
 import { FinanceMonthlyReport } from '../components/FinanceMonthlyReport'
 import { PurchaseReport } from '../components/PurchaseReport'
 import { HRSalaryTab } from '../components/reports/HRSalaryTab'
+import { WithdrawalsTab } from '../components/reports/WithdrawalsTab'
 import { IncomeStatementTab } from '../components/reports/IncomeStatementTab'
 import { BalanceSheetTab } from '../components/reports/BalanceSheetTab'
 import { ReportFilters, ReportFiltersComponent } from '../components/reports/ReportFilters'
 import { supabase } from '../lib/supabaseClient'
 
 export const ReportsNew = () => {
-  const [activeTab, setActiveTab] = useState<'finance' | 'purchases' | 'hr' | 'income-statement' | 'balance-sheet'>('finance')
+  const [activeTab, setActiveTab] = useState<'finance' | 'purchases' | 'hr' | 'withdrawals' | 'income-statement' | 'balance-sheet'>('finance')
   const [hrFilters, setHrFilters] = useState<ReportFilters>({
+    dateFrom: '',
+    dateTo: '',
+    department: '',
+    status: 'All'
+  })
+  const [withdrawalFilters, setWithdrawalFilters] = useState<ReportFilters>({
     dateFrom: '',
     dateTo: '',
     department: '',
@@ -101,6 +108,17 @@ export const ReportsNew = () => {
             HR Payments
           </button>
           <button
+            onClick={() => setActiveTab('withdrawals')}
+            className={`px-6 py-3 font-medium transition-colors flex items-center ${
+              activeTab === 'withdrawals'
+                ? 'text-green-700 border-b-2 border-green-700'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Banknote className="w-4 h-4 mr-2" />
+            Withdrawals
+          </button>
+          <button
             onClick={() => setActiveTab('income-statement')}
             className={`px-6 py-3 font-medium transition-colors flex items-center ${
               activeTab === 'income-statement'
@@ -135,6 +153,16 @@ export const ReportsNew = () => {
                 departments={departments}
               />
               <HRSalaryTab filters={hrFilters} />
+            </>
+          )}
+          {activeTab === 'withdrawals' && (
+            <>
+              <ReportFiltersComponent
+                filters={withdrawalFilters}
+                onChange={setWithdrawalFilters}
+                departments={[]}
+              />
+              <WithdrawalsTab filters={withdrawalFilters} />
             </>
           )}
           {activeTab === 'income-statement' && <IncomeStatementTab />}
