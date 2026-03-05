@@ -53,7 +53,10 @@ export const Login = () => {
       const result = await sendLoginVerificationCode(authData.user.id, employeeData.phone)
 
       if (!result.success) {
-        throw new Error(result.error || 'Failed to send verification code')
+        setError(`SMS service unavailable. Check database for code or contact admin. Error: ${result.error}`)
+        await supabase.auth.signOut()
+        setStep('verification')
+        return
       }
 
       await supabase.auth.signOut()
@@ -196,9 +199,9 @@ export const Login = () => {
                 <div className="flex items-start">
                   <Shield className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-medium">Verification code sent</p>
+                    <p className="font-medium">Verification code</p>
                     <p className="text-xs mt-1">
-                      Please enter the 6-digit code sent to {phoneNumber}
+                      Code sent to {phoneNumber}. If not received, check the database login_verification_codes table for your user ID or contact admin.
                     </p>
                   </div>
                 </div>
