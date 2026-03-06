@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { formatCurrency, formatDate } from '../lib/utils'
-import { CheckCircle, Clock, X, Users, DollarSign } from 'lucide-react'
+import { CircleCheck as CheckCircle, Clock, X, Users, DollarSign } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { useSMSNotifications } from '../hooks/useSMSNotifications'
 import { useRealtimeSubscription } from '../hooks/useRealtimeSubscription'

@@ -1,18 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  Coffee,
-  HandCoins,
-  Wallet,
-  Receipt,
-  FileText as FileTextIcon,
-  Users,
-  FileText,
-  Settings,
-  Shield,
-  MapPin,
-  CheckCircle
-} from 'lucide-react'
+import { LayoutDashboard, Coffee, HandCoins, Wallet, Receipt, FileText as FileTextIcon, Users, FileText, Settings, Shield, MapPin, CircleCheck as CheckCircle } from 'lucide-react'
 import { PermissionGate } from './PermissionGate'
 import { usePendingCounts } from '../hooks/usePendingCounts'
 
