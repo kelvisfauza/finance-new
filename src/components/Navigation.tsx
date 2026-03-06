@@ -10,7 +10,8 @@ import {
   FileText,
   Settings,
   Shield,
-  MapPin
+  MapPin,
+  CheckCircle
 } from 'lucide-react'
 import { PermissionGate } from './PermissionGate'
 import { usePendingCounts } from '../hooks/usePendingCounts'
@@ -71,6 +72,31 @@ export const Navigation = () => {
       })}
 
       <PermissionGate roles={['Super Admin', 'Manager', 'Administrator']}>
+        <NavLink
+          to="/admin/final-approvals"
+          className={({ isActive }) =>
+            `flex items-center justify-between px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+              isActive
+                ? 'bg-emerald-100 text-emerald-900'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`
+          }
+        >
+          {({ isActive }) => (
+            <>
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 mr-3" />
+                Final Approvals
+              </div>
+              {counts.adminFinalApprovals > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
+                  {counts.adminFinalApprovals}
+                </span>
+              )}
+            </>
+          )}
+        </NavLink>
+
         <NavLink
           to="/admin/verifications"
           className={({ isActive }) =>

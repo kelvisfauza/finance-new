@@ -79,18 +79,18 @@ export const HRPayments = () => {
       }
 
       // Fetch from money_requests table (old system)
+      // NEW FLOW: Show requests that need FINANCE approval first (not admin approved yet)
       let moneyQuery = supabase
         .from('money_requests')
         .select('*')
         .neq('request_type', 'Mid-Month Salary')
 
       if (showApproved) {
-        moneyQuery = moneyQuery.eq('finance_approved', true)
+        moneyQuery = moneyQuery.eq('finance_reviewed', true)
       } else {
         moneyQuery = moneyQuery
-          .eq('admin_approved', true)
-          .eq('finance_approved', false)
-          .in('status', ['approved', 'Approved', 'Pending Finance', 'pending'])
+          .eq('finance_reviewed', false)
+          .in('status', ['Pending Finance', 'Pending', 'pending'])
       }
 
       const { data: moneyData, error: moneyError } = await moneyQuery.order('created_at', { ascending: false })
@@ -98,17 +98,17 @@ export const HRPayments = () => {
       if (moneyError) throw moneyError
 
       // Fetch from approval_requests table (new system)
+      // NEW FLOW: Show requests that need FINANCE approval first
       let approvalQuery = supabase
         .from('approval_requests')
         .select('*')
         .in('type', ['Salary Request', 'Wage Request', 'Employee Salary Request', 'Salary Advance'])
-        .eq('admin_approved', true)
 
       if (showApproved) {
-        approvalQuery = approvalQuery.eq('finance_approved', true)
+        approvalQuery = approvalQuery.eq('finance_reviewed', true)
       } else {
         approvalQuery = approvalQuery
-          .eq('finance_approved', false)
+          .eq('finance_reviewed', false)
           .in('status', ['Pending Finance', 'Pending'])
       }
 
@@ -211,9 +211,15 @@ export const HRPayments = () => {
       setPayments(prev => prev.filter(p => p.id !== payment.id))
       setFilteredPayments(prev => prev.filter(p => p.id !== payment.id))
 
-      // Check if already finance approved to prevent duplicate processing
-      if (payment.finance_approved_at) {
-        alert('This payment has already been approved by finance')
+      // Check if already finance reviewed to prevent duplicate processing
+      const { data: checkData } = await supabase
+        .from(payment.user_id ? 'money_requests' : 'approval_requests')
+        .select('finance_reviewed')
+        .eq('id', payment.id)
+        .maybeSingle()
+
+      if (checkData?.finance_reviewed) {
+        alert('This payment has already been reviewed by finance')
         setProcessingId(null)
         await fetchPayments()
         return
@@ -222,26 +228,16 @@ export const HRPayments = () => {
       // Determine which table this payment came from
       const tableName = payment.user_id ? 'money_requests' : 'approval_requests'
 
-      // Check if cash transaction already exists to prevent duplicates
-      const { data: existingTransaction } = await supabase
-        .from('finance_cash_transactions')
-        .select('id')
-        .eq('reference', payment.id)
-        .maybeSingle()
-
-      if (existingTransaction) {
-        alert('This payment has already been processed')
-        return
-      }
-
+      // NEW FLOW: Finance approves FIRST, money is NOT disbursed yet
+      // Update status to 'Finance Approved' and wait for admin final approval
       const { error: updateError } = await supabase
         .from(tableName)
         .update({
-          status: 'Approved',
-          finance_approved: true,
-          finance_approved_at: new Date().toISOString(),
-          finance_approved_by: employee?.name || user?.email || 'Finance',
-          approval_stage: 'finance_approved',
+          status: 'Finance Approved',
+          finance_reviewed: true,
+          finance_review_at: new Date().toISOString(),
+          finance_review_by: employee?.name || user?.email || 'Finance',
+          approval_stage: 'pending_admin_final',
           updated_at: new Date().toISOString()
         })
         .eq('id', payment.id)
@@ -251,75 +247,9 @@ export const HRPayments = () => {
         throw new Error(`Failed to update approval: ${updateError.message}`)
       }
 
-      // Get current cash balance
-      const { data: balanceData, error: balanceError } = await supabase
-        .from('finance_cash_balance')
-        .select('current_balance')
-        .single()
-
-      if (balanceError) {
-        console.error('Balance fetch error:', balanceError)
-        throw new Error(`Failed to fetch cash balance: ${balanceError.message}`)
-      }
-
-      const currentBalance = parseFloat(balanceData.current_balance)
-      const paymentAmount = typeof payment.amount === 'string' ? parseFloat(payment.amount) : payment.amount
-      const balanceAfter = currentBalance - paymentAmount
-
-      // Record cash transaction
-      const { error: cashError } = await supabase
-        .from('finance_cash_transactions')
-        .insert({
-          transaction_type: 'salary',
-          amount: paymentAmount,
-          balance_after: balanceAfter,
-          notes: `${payment.request_type}: ${payment.reason}`,
-          reference: payment.id,
-          created_by: user?.email || 'Finance',
-          created_at: new Date().toISOString(),
-          status: 'confirmed'
-        })
-
-      if (cashError) {
-        console.error('Cash transaction error details:', cashError)
-        if (cashError.message?.includes('finance_cash_transactions_reference_key') ||
-            cashError.message?.includes('ledger_entries_reference_key') ||
-            cashError.message?.includes('duplicate key')) {
-          throw new Error('This payment has already been processed. Please refresh the page.')
-        }
-        throw new Error(`Failed to record cash transaction: ${cashError.message}`)
-      }
-
-      // Update cash balance
-      const { error: updateBalanceError } = await supabase
-        .from('finance_cash_balance')
-        .update({
-          current_balance: balanceAfter,
-          last_updated: new Date().toISOString(),
-          updated_by: user?.email || 'Finance'
-        })
-        .eq('singleton', true)
-
-      if (updateBalanceError) {
-        console.error('Balance update error:', updateBalanceError)
-        throw new Error(`Failed to update cash balance: ${updateBalanceError.message}`)
-      }
-
-      const employeeName = payment.employee_name || payment.requested_by
-      const employeePhone = payment.employee_phone
-
-      if (employeePhone) {
-        await sendFinanceApprovalCompleteSMS(
-          employeeName,
-          employeePhone,
-          payment.amount,
-          payment.request_type,
-          'CASH'
-        )
-      }
-
+      // NEW FLOW: Do NOT disburse money yet, just send to admin for final approval
       await fetchPayments()
-      alert('Payment approved and processed successfully')
+      alert('Finance approval completed. Request sent to admin for final approval and disbursement.')
     } catch (error: any) {
       console.error('Error approving payment:', error)
       alert(`Failed to approve payment request: ${error.message || 'Unknown error'}`)

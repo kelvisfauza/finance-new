@@ -24,6 +24,7 @@ import FieldAssessments from './pages/FieldAssessments'
 import StandaloneAssessment from './pages/StandaloneAssessment'
 import StandaloneAssessmentList from './pages/StandaloneAssessmentList'
 import PublicAssessment from './pages/PublicAssessment'
+import { AdminFinalApprovals } from './pages/AdminFinalApprovals'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,6 +65,7 @@ function App() {
             <Route path="expenses" element={<Expenses />} />
             <Route path="requisitions" element={<Requisitions />} />
             <Route path="hr-payments" element={<HRPayments />} />
+            <Route path="admin/final-approvals" element={<AdminFinalApprovals />} />
             <Route path="reports" element={<FinanceReports />} />
             <Route path="reports-old" element={<ReportsNew />} />
             <Route path="reports-legacy" element={<Reports />} />

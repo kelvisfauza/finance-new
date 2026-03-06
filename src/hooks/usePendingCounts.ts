@@ -5,13 +5,15 @@ export interface PendingCounts {
   expenses: number
   requisitions: number
   hrPayments: number
+  adminFinalApprovals: number
 }
 
 export const usePendingCounts = () => {
   const [counts, setCounts] = useState<PendingCounts>({
     expenses: 0,
     requisitions: 0,
-    hrPayments: 0
+    hrPayments: 0,
+    adminFinalApprovals: 0
   })
   const [loading, setLoading] = useState(true)
 
@@ -43,26 +45,43 @@ export const usePendingCounts = () => {
 
   const fetchCounts = async () => {
     try {
-      // Count from approval_requests table
+      // NEW FLOW: Count requests pending FINANCE approval (not admin)
       const { data: approvalData, error: approvalError } = await supabase
         .from('approval_requests')
-        .select('type, admin_approved, finance_approved, status')
-        .eq('admin_approved', true)
-        .eq('finance_approved', false)
+        .select('type, finance_reviewed, admin_final_approval, status')
+        .eq('finance_reviewed', false)
         .in('status', ['Pending Finance', 'Pending'])
 
       if (approvalError) throw approvalError
 
-      // Count from money_requests table (old HR system)
+      // Count from money_requests table (old HR system) - pending finance
       const { data: moneyData, error: moneyError } = await supabase
         .from('money_requests')
         .select('id')
         .neq('request_type', 'Mid-Month Salary')
-        .eq('admin_approved', true)
-        .eq('finance_approved', false)
-        .in('status', ['approved', 'Approved', 'Pending Finance', 'pending'])
+        .eq('finance_reviewed', false)
+        .in('status', ['Pending Finance', 'Pending', 'pending'])
 
       if (moneyError) throw moneyError
+
+      // NEW: Count requests pending ADMIN FINAL approval (already finance reviewed)
+      const { data: adminApprovalData, error: adminApprovalError } = await supabase
+        .from('approval_requests')
+        .select('id')
+        .eq('finance_reviewed', true)
+        .eq('admin_final_approval', false)
+        .eq('status', 'Finance Approved')
+
+      if (adminApprovalError) throw adminApprovalError
+
+      const { data: adminMoneyData, error: adminMoneyError } = await supabase
+        .from('money_requests')
+        .select('id')
+        .eq('finance_reviewed', true)
+        .eq('admin_final_approval', false)
+        .eq('status', 'Finance Approved')
+
+      if (adminMoneyError) throw adminMoneyError
 
       const expenseCount = approvalData?.filter((r: any) =>
         ['Expense Request', 'Company Expense', 'Field Financing Request', 'Personal Expense'].includes(r.type)
@@ -78,10 +97,13 @@ export const usePendingCounts = () => {
 
       const hrCountFromMoney = moneyData?.length || 0
 
+      const adminFinalApprovalsCount = (adminApprovalData?.length || 0) + (adminMoneyData?.length || 0)
+
       setCounts({
         expenses: expenseCount,
         requisitions: requisitionCount,
-        hrPayments: hrCountFromApprovals + hrCountFromMoney
+        hrPayments: hrCountFromApprovals + hrCountFromMoney,
+        adminFinalApprovals: adminFinalApprovalsCount
       })
     } catch (error) {
       console.error('Error fetching pending counts:', error)
