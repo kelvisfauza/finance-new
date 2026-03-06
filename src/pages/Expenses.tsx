@@ -98,10 +98,10 @@ export const Expenses = () => {
 
   const getDisplayStatus = useCallback((expense: Expense) => {
     if (expense.status === 'Rejected') return 'Rejected'
-    if (expense.finance_approved || expense.status === 'Approved') return 'Approved'
-    if (expense.admin_approved && !expense.finance_approved) return 'Pending Finance'
-    if (isFinanceRole && expense.admin_approved && !expense.finance_approved) return 'Ready for Review'
-    return 'Pending Admin'
+    if (expense.finance_approved && expense.admin_approved) return 'Approved'
+    if (expense.finance_approved && !expense.admin_approved) return 'Pending Admin'
+    if (isFinanceRole && !expense.finance_approved) return 'Ready for Review'
+    return 'Pending Finance'
   }, [isFinanceRole])
 
   const filterExpenses = useCallback(() => {
@@ -165,12 +165,44 @@ export const Expenses = () => {
       setProcessing(true)
 
       if (actionType === 'finance-review') {
+        // Finance approves first - just update status to "Finance Approved"
         const { error: updateError } = await supabase
           .from('approval_requests')
           .update({
             finance_approved: true,
             finance_approved_by: employee.name,
             finance_approved_at: new Date().toISOString(),
+            status: 'Finance Approved',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedExpense.id)
+
+        if (updateError) throw updateError
+
+        await createNotification(
+          'Expense Approved by Finance',
+          `Your expense "${selectedExpense.title}" for ${formatCurrency(selectedExpense.amount)} has been approved by Finance. Awaiting Admin final approval.`,
+          {
+            type: 'system',
+            priority: 'Medium',
+            targetUserEmail: selectedExpense.requestedby,
+            metadata: {
+              expenseId: selectedExpense.id,
+              amount: selectedExpense.amount,
+              approvedBy: employee.name,
+            }
+          }
+        )
+
+        fetchExpenses()
+      } else if (actionType === 'admin-approve') {
+        // Admin approves last - releases cash and creates records
+        const { error: updateError } = await supabase
+          .from('approval_requests')
+          .update({
+            admin_approved: true,
+            admin_approved_by: employee.name,
+            admin_approved_at: new Date().toISOString(),
             status: 'Approved',
             updated_at: new Date().toISOString()
           })
@@ -232,11 +264,11 @@ export const Expenses = () => {
         if (updateBalanceError) throw new Error(`Failed to update cash balance: ${updateBalanceError.message}`)
 
         await createNotification(
-          'Expense Approved',
-          `Your expense "${selectedExpense.title}" for ${formatCurrency(selectedExpense.amount)} has been approved by Finance.`,
+          'Expense Fully Approved & Cash Released',
+          `Your expense "${selectedExpense.title}" for ${formatCurrency(selectedExpense.amount)} has been fully approved and cash has been released.`,
           {
             type: 'system',
-            priority: 'Medium',
+            priority: 'High',
             targetUserEmail: selectedExpense.requestedby,
             metadata: {
               expenseId: selectedExpense.id,
@@ -257,36 +289,6 @@ export const Expenses = () => {
             'CASH'
           )
         }
-
-        fetchExpenses()
-      } else if (actionType === 'admin-approve') {
-        const { error: updateError } = await supabase
-          .from('approval_requests')
-          .update({
-            admin_approved: true,
-            admin_approved_by: employee.name,
-            admin_approved_at: new Date().toISOString(),
-            status: 'Pending Finance',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', selectedExpense.id)
-
-        if (updateError) throw updateError
-
-        await createNotification(
-          'Expense Approved by Admin',
-          `Your expense "${selectedExpense.title}" for ${formatCurrency(selectedExpense.amount)} has been approved by Admin. Awaiting Finance review.`,
-          {
-            type: 'system',
-            priority: 'Medium',
-            targetUserEmail: selectedExpense.requestedby,
-            metadata: {
-              expenseId: selectedExpense.id,
-              amount: selectedExpense.amount,
-              approvedBy: employee.name,
-            }
-          }
-        )
 
         fetchExpenses()
       } else if (actionType === 'reject') {
@@ -791,17 +793,17 @@ export const Expenses = () => {
                           return null
                         }
 
-                        if (displayStatus === 'Pending Admin') {
+                        if (displayStatus === 'Pending Finance' || displayStatus === 'Ready for Review') {
                           return (
                             <div className="flex justify-center gap-2">
-                              {isAdminRole && (
+                              {isFinanceRole && (
                                 <>
                                   <button
-                                    onClick={() => handleAdminApprove(expense)}
+                                    onClick={() => handleFinanceReview(expense)}
                                     disabled={processing}
-                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                                   >
-                                    Approve
+                                    Approve (Finance)
                                   </button>
                                   <button
                                     onClick={() => handleReject(expense)}
@@ -816,15 +818,15 @@ export const Expenses = () => {
                           )
                         }
 
-                        if (displayStatus === 'Pending Finance' || displayStatus === 'Ready for Review') {
+                        if (displayStatus === 'Pending Admin') {
                           return (
                             <div className="flex justify-center gap-2">
-                              {isFinanceRole && (
+                              {isAdminRole && (
                                 <>
                                   <button
-                                    onClick={() => handleFinanceReview(expense)}
+                                    onClick={() => handleAdminApprove(expense)}
                                     disabled={processing}
-                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
                                   >
                                     Final Approve & Release Cash
                                   </button>

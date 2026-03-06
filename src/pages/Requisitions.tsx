@@ -109,10 +109,10 @@ export const Requisitions = () => {
 
   const getDisplayStatus = (req: Requisition) => {
     if (req.status === 'Rejected') return 'Rejected'
-    if (req.finance_approved || req.status === 'Approved') return 'Approved'
-    if (req.admin_approved && !req.finance_approved) return 'Pending Finance'
-    if (isFinanceRole && req.admin_approved && !req.finance_approved) return 'Ready for Review'
-    return 'Pending Admin'
+    if (req.finance_approved && req.admin_approved) return 'Approved'
+    if (req.finance_approved && !req.admin_approved) return 'Pending Admin'
+    if (isFinanceRole && !req.finance_approved) return 'Ready for Review'
+    return 'Pending Finance'
   }
 
   const filterRequisitions = () => {
@@ -162,12 +162,44 @@ export const Requisitions = () => {
       setProcessing(true)
 
       if (actionType === 'finance-review') {
+        // Finance approves first - just update status to "Finance Approved"
         const { error: updateError } = await supabase
           .from('approval_requests')
           .update({
             finance_approved: true,
             finance_approved_by: employee.name,
             finance_approved_at: new Date().toISOString(),
+            status: 'Finance Approved',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', selectedRequisition.id)
+
+        if (updateError) throw updateError
+
+        await createNotification(
+          'Requisition Approved by Finance',
+          `Your requisition "${selectedRequisition.title}" for ${formatCurrency(selectedRequisition.amount)} has been approved by Finance. Awaiting Admin final approval.`,
+          {
+            type: 'system',
+            priority: 'Medium',
+            targetUserEmail: selectedRequisition.requestedby,
+            metadata: {
+              requisitionId: selectedRequisition.id,
+              amount: selectedRequisition.amount,
+              approvedBy: employee.name,
+            }
+          }
+        )
+
+        fetchRequisitions()
+      } else if (actionType === 'admin-approve') {
+        // Admin approves last - releases cash and creates records
+        const { error: updateError } = await supabase
+          .from('approval_requests')
+          .update({
+            admin_approved: true,
+            admin_approved_by: employee.name,
+            admin_approved_at: new Date().toISOString(),
             status: 'Approved',
             updated_at: new Date().toISOString()
           })
@@ -229,11 +261,11 @@ export const Requisitions = () => {
         if (updateBalanceError) throw new Error(`Failed to update cash balance: ${updateBalanceError.message}`)
 
         await createNotification(
-          'Requisition Approved',
-          `Your requisition "${selectedRequisition.title}" for ${formatCurrency(selectedRequisition.amount)} has been approved by Finance.`,
+          'Requisition Fully Approved & Cash Released',
+          `Your requisition "${selectedRequisition.title}" for ${formatCurrency(selectedRequisition.amount)} has been fully approved and cash has been released.`,
           {
             type: 'system',
-            priority: 'Medium',
+            priority: 'High',
             targetUserEmail: selectedRequisition.requestedby,
             metadata: {
               requisitionId: selectedRequisition.id,
@@ -254,36 +286,6 @@ export const Requisitions = () => {
             'CASH'
           )
         }
-
-        fetchRequisitions()
-      } else if (actionType === 'admin-approve') {
-        const { error: updateError } = await supabase
-          .from('approval_requests')
-          .update({
-            admin_approved: true,
-            admin_approved_by: employee.name,
-            admin_approved_at: new Date().toISOString(),
-            status: 'Pending Finance',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', selectedRequisition.id)
-
-        if (updateError) throw updateError
-
-        await createNotification(
-          'Requisition Approved by Admin',
-          `Your requisition "${selectedRequisition.title}" for ${formatCurrency(selectedRequisition.amount)} has been approved by Admin. Awaiting Finance review.`,
-          {
-            type: 'system',
-            priority: 'Medium',
-            targetUserEmail: selectedRequisition.requestedby,
-            metadata: {
-              requisitionId: selectedRequisition.id,
-              amount: selectedRequisition.amount,
-              approvedBy: employee.name,
-            }
-          }
-        )
 
         fetchRequisitions()
       } else if (actionType === 'reject') {
@@ -798,17 +800,17 @@ export const Requisitions = () => {
                           return null
                         }
 
-                        if (displayStatus === 'Pending Admin') {
+                        if (displayStatus === 'Pending Finance' || displayStatus === 'Ready for Review') {
                           return (
                             <div className="flex justify-center gap-2">
-                              {isAdminRole && (
+                              {isFinanceRole && (
                                 <>
                                   <button
-                                    onClick={() => handleAdminApprove(requisition)}
+                                    onClick={() => handleFinanceReview(requisition)}
                                     disabled={processing}
-                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                                   >
-                                    Approve
+                                    Approve (Finance)
                                   </button>
                                   <button
                                     onClick={() => handleReject(requisition)}
@@ -823,15 +825,15 @@ export const Requisitions = () => {
                           )
                         }
 
-                        if (displayStatus === 'Pending Finance' || displayStatus === 'Ready for Review') {
+                        if (displayStatus === 'Pending Admin') {
                           return (
                             <div className="flex justify-center gap-2">
-                              {isFinanceRole && (
+                              {isAdminRole && (
                                 <>
                                   <button
-                                    onClick={() => handleFinanceReview(requisition)}
+                                    onClick={() => handleAdminApprove(requisition)}
                                     disabled={processing}
-                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
                                   >
                                     Final Approve & Release Cash
                                   </button>
