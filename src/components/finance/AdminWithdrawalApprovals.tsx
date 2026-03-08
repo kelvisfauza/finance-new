@@ -76,7 +76,7 @@ export const AdminWithdrawalApprovals = () => {
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select('*')
-        .in('status', ['pending', 'pending_admin'])
+        .in('status', ['pending', 'pending_admin', 'Finance Approved'])
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -162,21 +162,49 @@ export const AdminWithdrawalApprovals = () => {
       const now = new Date().toISOString()
       let updateData: any = {}
 
+      // Check if Finance has already approved (new flow)
+      const financeApproved = request.status === 'Finance Approved' || (request as any).finance_reviewed === true
+
       if (!request.admin_approved_1_by) {
         updateData = {
           admin_approved_1_by: currentUserEmail,
           admin_approved_1_at: now
         }
+
+        // If this is the first approval and doesn't require 3 approvals
+        if (!request.requires_three_approvals) {
+          if (financeApproved) {
+            // Finance already approved, this is final approval - release money
+            updateData.status = 'approved'
+            updateData.admin_final_approval = true
+            updateData.admin_final_approval_at = now
+            updateData.admin_final_approval_by = currentUserEmail
+            updateData.approved_at = now
+            updateData.approved_by = currentUserEmail
+          } else {
+            // Old flow: Admin approves first, then goes to Finance
+            updateData.status = 'pending_finance'
+          }
+        }
       } else if (!request.admin_approved_2_by && request.requires_three_approvals) {
         updateData = {
           admin_approved_2_by: currentUserEmail,
-          admin_approved_2_at: now,
-          status: 'pending_finance'
+          admin_approved_2_at: now
         }
-      }
 
-      if (request.requires_three_approvals === false && !request.admin_approved_1_by) {
-        updateData.status = 'pending_finance'
+        // Second approval for high-value withdrawals
+        if (financeApproved) {
+          // Finance already approved, this is final approval - release money
+          updateData.status = 'approved'
+          updateData.admin_final_approval = true
+          updateData.admin_final_approval_at = now
+          updateData.admin_final_approval_by = currentUserEmail
+          updateData.approved_at = now
+          updateData.approved_by = currentUserEmail
+        } else {
+          // Old flow: needs Finance approval
+          updateData.status = 'pending_finance'
+        }
       }
 
       const { error } = await supabase
@@ -186,7 +214,12 @@ export const AdminWithdrawalApprovals = () => {
 
       if (error) throw error
 
-      alert(`Withdrawal request approved successfully`)
+      if (updateData.status === 'approved') {
+        alert(`Final approval complete! ${formatCurrency(request.amount)} will be deducted from wallet and payment processed.`)
+      } else {
+        alert(`Withdrawal request approved successfully. ${updateData.status === 'pending_finance' ? 'Now awaiting Finance approval.' : ''}`)
+      }
+
       fetchRequests()
     } catch (error: any) {
       console.error('Error approving request:', error)

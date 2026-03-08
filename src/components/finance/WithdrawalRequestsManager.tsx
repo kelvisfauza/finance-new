@@ -227,12 +227,14 @@ export const WithdrawalRequestsManager = () => {
       return
     }
 
-    const confirmMsg = `Approve ${formatCurrency(request.amount)} withdrawal to ${request.employee_name}?
+    const confirmMsg = `Finance Approval: ${formatCurrency(request.amount)} withdrawal to ${request.employee_name}?
 
 Wallet Balance: ${formatCurrency(request.wallet_balance || 0)}
 After Withdrawal: ${formatCurrency((request.wallet_balance || 0) - request.amount)}
 
-Payment Method: ${request.payment_channel}`
+Payment Method: ${request.payment_channel}
+
+This will approve the withdrawal for Finance. Admin must give final approval before money is released.`
 
     if (!confirm(confirmMsg)) {
       return
@@ -249,9 +251,10 @@ Payment Method: ${request.payment_channel}`
       const { error } = await supabase
         .from('withdrawal_requests')
         .update({
-          status: 'approved',
-          approved_at: now,
-          approved_by: currentUserEmail,
+          status: 'Finance Approved',
+          finance_reviewed: true,
+          finance_review_at: now,
+          finance_review_by: currentUserEmail,
           finance_approved_by: currentUserEmail,
           finance_approved_at: now
         })
@@ -259,18 +262,7 @@ Payment Method: ${request.payment_channel}`
 
       if (error) throw error
 
-      alert(`✓ Withdrawal approved! ${formatCurrency(request.amount)} deducted from wallet.`)
-
-      const channel = (request as any).disbursement_method || request.payment_channel
-
-      if (channel === 'CASH') {
-        printCashSlip(request)
-      } else if (channel === 'MOBILE_MONEY') {
-        const phone = (request as any).disbursement_phone || request.phone_number
-        alert(`Mobile money payment of ${formatCurrency(request.amount)} to ${phone} will be processed.`)
-      } else if (channel === 'BANK') {
-        alert(`Bank transfer of ${formatCurrency(request.amount)} to ${request.disbursement_account_name} will be processed.`)
-      }
+      alert(`✓ Finance approval complete! Request now awaiting Admin final approval.`)
 
       fetchRequests()
     } catch (error: any) {
