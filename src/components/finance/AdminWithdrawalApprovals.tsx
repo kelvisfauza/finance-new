@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { formatCurrency, formatDate } from '../../lib/utils'
-import { CheckCircle, XCircle, Clock, AlertCircle, UserCheck } from 'lucide-react'
+import { CircleCheck as CheckCircle, Circle as XCircle, Clock, CircleAlert as AlertCircle, UserCheck } from 'lucide-react'
 import { WithdrawalVerificationModal } from './WithdrawalVerificationModal'
 
 interface WithdrawalRequest {
