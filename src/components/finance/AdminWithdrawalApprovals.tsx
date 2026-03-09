@@ -46,7 +46,12 @@ export const AdminWithdrawalApprovals = () => {
 
     const channel = supabase
       .channel('admin-withdrawal-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawal_requests' }, fetchRequests)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'money_requests',
+        filter: 'request_type=eq.withdrawal'
+      }, fetchRequests)
       .subscribe()
 
     return () => {
