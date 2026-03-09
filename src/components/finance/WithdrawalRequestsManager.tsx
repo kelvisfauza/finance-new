@@ -178,7 +178,7 @@ export const WithdrawalRequestsManager = () => {
   useEffect(() => {
     fetchRequests()
 
-    // Real-time subscription for ALL withdrawal request changes
+    // Real-time subscription for money_requests (underlying table for withdrawal_requests view)
     const channel = supabase
       .channel('withdrawal-requests-realtime')
       .on(
@@ -186,7 +186,8 @@ export const WithdrawalRequestsManager = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'withdrawal_requests'
+          table: 'money_requests',
+          filter: 'request_type=eq.withdrawal'
         },
         (payload: any) => {
           console.log('Withdrawal request change detected:', payload)
