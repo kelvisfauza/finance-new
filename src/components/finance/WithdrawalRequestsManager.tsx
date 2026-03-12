@@ -75,6 +75,7 @@ export const WithdrawalRequestsManager = () => {
         .from('withdrawal_requests')
         .select('*')
         .eq('status', 'pending_finance')
+        .eq('admin_approved_1', true)
         .order('created_at', { ascending: false })
 
       if (error) throw error
