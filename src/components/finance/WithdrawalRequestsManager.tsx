@@ -303,9 +303,7 @@ After Finance approval, this will go to Admin for final approval before money is
         .from('withdrawal_requests')
         .update({
           status: 'rejected',
-          rejection_reason: rejectionReason.trim(),
-          rejected_by: currentUserEmail,
-          rejected_at: new Date().toISOString()
+          rejection_reason: rejectionReason.trim()
         })
         .eq('id', rejectingId)
 
