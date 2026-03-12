@@ -75,7 +75,7 @@ export const WithdrawalRequestsManager = () => {
         .from('withdrawal_requests')
         .select('*')
         .eq('status', 'pending_finance')
-        .eq('admin_approved_1', true)
+        .eq('finance_reviewed', false)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -229,14 +229,14 @@ export const WithdrawalRequestsManager = () => {
       return
     }
 
-    const confirmMsg = `Finance Approval: ${formatCurrency(request.amount)} withdrawal to ${request.employee_name}?
+    const confirmMsg = `Finance Approval (Step 1): ${formatCurrency(request.amount)} withdrawal to ${request.employee_name}?
 
 Wallet Balance: ${formatCurrency(request.wallet_balance || 0)}
 After Withdrawal: ${formatCurrency((request.wallet_balance || 0) - request.amount)}
 
 Payment Method: ${request.payment_channel}
 
-This will approve the withdrawal for Finance. Admin must give final approval before money is released.`
+After Finance approval, this will go to Admin for final approval before money is released.`
 
     if (!confirm(confirmMsg)) {
       return
@@ -264,7 +264,7 @@ This will approve the withdrawal for Finance. Admin must give final approval bef
 
       if (error) throw error
 
-      alert(`✓ Finance approval complete! Request now awaiting Admin final approval.`)
+      alert(`✓ Finance approval complete! Request now awaiting final Admin approval before disbursement.`)
 
       fetchRequests()
     } catch (error: any) {
@@ -626,16 +626,16 @@ This will attempt to process the payment again.`
 
         <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-200">
           <p className="text-sm text-green-900">
-            <strong>Finance Approval:</strong> These withdrawal requests have completed all required admin approvals.
-            Verify wallet balance and disbursement details before approving.
+            <strong>Finance Approval (Step 1):</strong> Review and approve these withdrawal requests first.
+            After finance approval, they will go to admin for final approval before disbursement.
           </p>
         </div>
 
         {requests.length === 0 ? (
           <div className="text-center py-8">
             <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-            <p className="text-gray-600">No withdrawal requests ready for payment</p>
-            <p className="text-sm text-gray-500 mt-1">Requests will appear here after admin approval</p>
+            <p className="text-gray-600">No withdrawal requests pending finance review</p>
+            <p className="text-sm text-gray-500 mt-1">New requests will appear here for finance approval first</p>
           </div>
         ) : (
           <div className="space-y-4">
