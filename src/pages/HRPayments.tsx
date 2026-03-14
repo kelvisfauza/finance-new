@@ -645,12 +645,12 @@ export const HRPayments = () => {
       </div>
 
       {/* New Withdrawal System Components */}
-      <PermissionGate roles={['Super Admin', 'Manager', 'Administrator']}>
-        <AdminWithdrawalApprovals />
+      <PermissionGate permissions={['Finance', 'Finance Management', 'Finance Approval']} roles={['Manager']}>
+        <WithdrawalRequestsManager />
       </PermissionGate>
 
-      <PermissionGate permissions={['Finance', 'Finance Management', 'Finance Approval']}>
-        <WithdrawalRequestsManager />
+      <PermissionGate roles={['Super Admin', 'Administrator']}>
+        <AdminWithdrawalApprovals />
       </PermissionGate>
 
       <WithdrawalRequestForm onSuccess={fetchPayments} />
