@@ -21,17 +21,22 @@ export const PermissionGate: React.FC<PermissionGateProps> = ({
     return <>{children}</>
   }
 
-  if (roles && roles.length > 0) {
-    const hasRole = roles.includes(employee.role)
+  const hasRole = roles && roles.length > 0 ? roles.includes(employee.role) : false
+  const hasPermission = permissions && permissions.length > 0
+    ? (requireAll
+        ? permissions.every((perm) => employee.permissions.includes(perm))
+        : permissions.some((perm) => employee.permissions.includes(perm)))
+    : false
+
+  // If both roles and permissions are specified, user needs either one (OR logic)
+  if (roles && roles.length > 0 && permissions && permissions.length > 0) {
+    if (!hasRole && !hasPermission) return null
+  } else if (roles && roles.length > 0) {
+    // Only roles specified
     if (!hasRole) return null
-  }
-
-  if (permissions && permissions.length > 0) {
-    const checkPermission = requireAll
-      ? permissions.every((perm) => employee.permissions.includes(perm))
-      : permissions.some((perm) => employee.permissions.includes(perm))
-
-    if (!checkPermission) return null
+  } else if (permissions && permissions.length > 0) {
+    // Only permissions specified
+    if (!hasPermission) return null
   }
 
   return <>{children}</>
