@@ -102,7 +102,23 @@ export const AdminWithdrawalApprovals = () => {
         })
       )
 
-      setRequests(enrichedRequests)
+      // Filter out requests where current user has already approved
+      const filteredRequests = enrichedRequests.filter(req => {
+        const approvers = [
+          req.admin_approved_1_by,
+          req.admin_approved_2_by,
+          req.admin_approved_3_by
+        ].filter(Boolean)
+
+        // Don't show if current user already approved
+        if (approvers.includes(currentUserEmail)) {
+          return false
+        }
+
+        return true
+      })
+
+      setRequests(filteredRequests)
     } catch (error) {
       console.error('Error fetching withdrawal requests:', error)
     } finally {
