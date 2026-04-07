@@ -78,24 +78,8 @@ export const HRPayments = () => {
         setLoading(true)
       }
 
-      // Fetch from money_requests table (old system)
-      // NEW FLOW: Show requests that need FINANCE approval first (not admin approved yet)
-      let moneyQuery = supabase
-        .from('money_requests')
-        .select('*')
-        .neq('request_type', 'Mid-Month Salary')
-
-      if (showApproved) {
-        moneyQuery = moneyQuery.eq('finance_reviewed', true)
-      } else {
-        moneyQuery = moneyQuery
-          .eq('finance_reviewed', false)
-          .in('status', ['Pending Finance', 'Pending', 'pending'])
-      }
-
-      const { data: moneyData, error: moneyError } = await moneyQuery.order('created_at', { ascending: false })
-
-      if (moneyError) throw moneyError
+      // money_requests table no longer exists - only use approval_requests
+      const moneyData: any[] = []
 
       // Fetch from approval_requests table (new system)
       // NEW FLOW: Show requests that need FINANCE approval first
