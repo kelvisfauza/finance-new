@@ -78,10 +78,13 @@ export const AdminWithdrawalApprovals = () => {
 
   const fetchRequests = async () => {
     try {
+      // Fetch requests that are approved by finance but NOT yet given admin final approval
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select('*')
-        .in('status', ['pending', 'pending_admin', 'Finance Approved', 'approved', 'Approved'])
+        .eq('finance_reviewed', true)
+        .eq('admin_final_approval', false)
+        .not('status', 'in', '("rejected","cancelled","Rejected")')
         .order('created_at', { ascending: false })
 
       if (error) throw error
