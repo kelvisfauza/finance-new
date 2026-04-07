@@ -81,7 +81,7 @@ export const AdminWithdrawalApprovals = () => {
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select('*')
-        .in('status', ['pending', 'pending_admin', 'Finance Approved'])
+        .in('status', ['pending', 'pending_admin', 'Finance Approved', 'approved', 'Approved'])
         .order('created_at', { ascending: false })
 
       if (error) throw error
