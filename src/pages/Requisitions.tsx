@@ -109,10 +109,10 @@ export const Requisitions = () => {
 
   const getDisplayStatus = (req: Requisition) => {
     if (req.status === 'Rejected') return 'Rejected'
-    if (req.finance_approved && req.admin_approved) return 'Approved'
-    if (req.finance_approved && !req.admin_approved) return 'Pending Admin'
-    if (isFinanceRole && !req.finance_approved) return 'Ready for Review'
-    return 'Pending Finance'
+    if (req.admin_approved && req.finance_approved) return 'Approved'
+    if (req.admin_approved && !req.finance_approved) return 'Pending Finance'
+    if (isAdminRole && !req.admin_approved) return 'Ready for Review'
+    return 'Pending Admin'
   }
 
   const filterRequisitions = () => {
@@ -161,15 +161,15 @@ export const Requisitions = () => {
     try {
       setProcessing(true)
 
-      if (actionType === 'finance-review') {
-        // Finance approves first - just update status to "Finance Approved"
+      if (actionType === 'admin-approve') {
+        // Admin approves first - just authorises, no cash release yet
         const { error: updateError } = await supabase
           .from('approval_requests')
           .update({
-            finance_approved: true,
-            finance_approved_by: employee.name,
-            finance_approved_at: new Date().toISOString(),
-            status: 'Finance Approved',
+            admin_approved: true,
+            admin_approved_by: employee.name,
+            admin_approved_at: new Date().toISOString(),
+            status: 'Admin Approved',
             updated_at: new Date().toISOString()
           })
           .eq('id', selectedRequisition.id)
@@ -177,8 +177,8 @@ export const Requisitions = () => {
         if (updateError) throw updateError
 
         await createNotification(
-          'Requisition Approved by Finance',
-          `Your requisition "${selectedRequisition.title}" for ${formatCurrency(selectedRequisition.amount)} has been approved by Finance. Awaiting Admin final approval.`,
+          'Requisition Approved by Admin',
+          `Your requisition "${selectedRequisition.title}" for ${formatCurrency(selectedRequisition.amount)} has been approved by Admin. Awaiting Finance to release cash.`,
           {
             type: 'system',
             priority: 'Medium',
@@ -192,14 +192,14 @@ export const Requisitions = () => {
         )
 
         fetchRequisitions()
-      } else if (actionType === 'admin-approve') {
-        // Admin approves last - releases cash and creates records
+      } else if (actionType === 'finance-review') {
+        // Finance approves last - releases cash and creates records
         const { error: updateError } = await supabase
           .from('approval_requests')
           .update({
-            admin_approved: true,
-            admin_approved_by: employee.name,
-            admin_approved_at: new Date().toISOString(),
+            finance_approved: true,
+            finance_approved_by: employee.name,
+            finance_approved_at: new Date().toISOString(),
             status: 'Approved',
             updated_at: new Date().toISOString()
           })
@@ -800,17 +800,17 @@ export const Requisitions = () => {
                           return null
                         }
 
-                        if (displayStatus === 'Pending Finance' || displayStatus === 'Ready for Review') {
+                        if (displayStatus === 'Pending Admin' || displayStatus === 'Ready for Review') {
                           return (
                             <div className="flex justify-center gap-2">
-                              {isFinanceRole && (
+                              {isAdminRole && (
                                 <>
                                   <button
-                                    onClick={() => handleFinanceReview(requisition)}
+                                    onClick={() => handleAdminApprove(requisition)}
                                     disabled={processing}
-                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
                                   >
-                                    Approve (Finance)
+                                    Approve (Admin)
                                   </button>
                                   <button
                                     onClick={() => handleReject(requisition)}
@@ -825,17 +825,17 @@ export const Requisitions = () => {
                           )
                         }
 
-                        if (displayStatus === 'Pending Admin') {
+                        if (displayStatus === 'Pending Finance') {
                           return (
                             <div className="flex justify-center gap-2">
-                              {isAdminRole && (
+                              {isFinanceRole && (
                                 <>
                                   <button
-                                    onClick={() => handleAdminApprove(requisition)}
+                                    onClick={() => handleFinanceReview(requisition)}
                                     disabled={processing}
-                                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
+                                    className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors disabled:opacity-50"
                                   >
-                                    Final Approve & Release Cash
+                                    Approve & Release Cash
                                   </button>
                                   <button
                                     onClick={() => handleReject(requisition)}
@@ -865,15 +865,15 @@ export const Requisitions = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
             <div className={`px-6 py-4 rounded-t-2xl ${
-              actionType === 'finance-review'
+              actionType === 'admin-approve'
                 ? 'bg-gradient-to-r from-blue-600 to-blue-700'
-                : actionType === 'admin-approve'
+                : actionType === 'finance-review'
                 ? 'bg-gradient-to-r from-green-600 to-green-700'
                 : 'bg-gradient-to-r from-red-600 to-red-700'
             }`}>
               <h3 className="text-xl font-semibold text-white">
-                {actionType === 'finance-review' && 'Final Approval & Release Cash'}
                 {actionType === 'admin-approve' && 'Admin Approval'}
+                {actionType === 'finance-review' && 'Final Approval & Release Cash'}
                 {actionType === 'reject' && 'Reject Requisition'}
               </h3>
             </div>
@@ -912,8 +912,8 @@ export const Requisitions = () => {
               </div>
 
               <p className="text-sm text-gray-600">
+                {actionType === 'admin-approve' && 'This will authorize the requisition and send it to Finance for cash release. This action cannot be undone.'}
                 {actionType === 'finance-review' && 'This will approve the requisition, release the cash amount, and create financial records. This action cannot be undone.'}
-                {actionType === 'admin-approve' && 'This will provide final approval and create financial records. This action cannot be undone.'}
                 {actionType === 'reject' && 'Are you sure you want to reject this requisition?'}
               </p>
             </div>
@@ -933,16 +933,16 @@ export const Requisitions = () => {
                 onClick={handleConfirmAction}
                 disabled={processing}
                 className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  actionType === 'finance-review'
+                  actionType === 'admin-approve'
                     ? 'bg-blue-600 hover:bg-blue-700'
-                    : actionType === 'admin-approve'
+                    : actionType === 'finance-review'
                     ? 'bg-green-600 hover:bg-green-700'
                     : 'bg-red-600 hover:bg-red-700'
                 }`}
               >
                 {processing ? 'Processing...' :
-                  actionType === 'finance-review' ? 'Approve & Release Cash' :
                   actionType === 'admin-approve' ? 'Confirm Admin Approval' :
+                  actionType === 'finance-review' ? 'Approve & Release Cash' :
                   'Confirm Rejection'}
               </button>
             </div>
